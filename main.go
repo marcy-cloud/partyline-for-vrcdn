@@ -18,6 +18,8 @@ func init() {
 	application.RegisterEvent[[]player.AudioDevice](eventDevices)
 }
 
+const singleInstanceID = "vrcdn-lowlatency-player-7c0d1f0e"
+
 func main() {
 	var window *application.WebviewWindow
 
@@ -38,7 +40,7 @@ func main() {
 		},
 		// Two copies would fight over the same audio device and config.
 		SingleInstance: &application.SingleInstanceOptions{
-			UniqueID: "vrcdn-lowlatency-player-7c0d1f0e",
+			UniqueID: instanceID(),
 			OnSecondInstanceLaunch: func(application.SecondInstanceData) {
 				if window != nil {
 					window.Restore()

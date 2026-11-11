@@ -135,7 +135,9 @@ node scripts/ui-smoke.mjs bin\dev.exe bin
 ```
 
 The DevTools port is only available in development builds
-(`VRCDN_PLAYER_DEBUG_PORT`); release builds have no such switch.
+(`VRCDN_PLAYER_DEBUG_PORT`); release builds have no such switch. A copy
+started this way uses its own single-instance lock, so the test can run
+while the player itself is open.
 
 ## How it is put together
 

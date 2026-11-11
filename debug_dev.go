@@ -16,3 +16,12 @@ func browserArgs() []string {
 	}
 	return nil
 }
+
+// instanceID is the single-instance lock name. A copy started for a scripted
+// test gets its own, so it can run next to the copy someone is using.
+func instanceID() string {
+	if os.Getenv("VRCDN_PLAYER_DEBUG_PORT") != "" {
+		return singleInstanceID + "-test"
+	}
+	return singleInstanceID
+}
