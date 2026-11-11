@@ -1,6 +1,8 @@
 module vrcdn-lowlatency-player/tools/fetch-libmpv
 
-go 1.26.0
+go 1.27.0
+
+toolchain go1.27.4
 
 require github.com/bodgit/sevenzip v1.6.5
 

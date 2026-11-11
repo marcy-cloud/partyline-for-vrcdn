@@ -53,7 +53,7 @@ any OS.
 
 ## Building
 
-Requirements: Go 1.26+, Node 20+, and the Wails CLI:
+Requirements: Go 1.27+, Node 20+, and the Wails CLI:
 
 ```
 go install github.com/wailsapp/wails/v2/cmd/wails@v2.17.1
