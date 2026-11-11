@@ -188,16 +188,15 @@
 
   .toast {
     position: fixed;
-    left: 50%;
-    bottom: 18px;
-    transform: translateX(-50%);
-    max-width: min(560px, calc(100vw - 48px));
+    right: var(--gt-space-4);
+    bottom: var(--gt-space-4);
+    max-width: min(480px, calc(100vw - 2 * var(--gt-space-4)));
     padding: 10px 14px;
-    border: 1px solid color-mix(in srgb, var(--bad) 50%, transparent);
-    border-radius: var(--radius);
-    background: #2a1719;
-    color: #ffd9d9;
+    border: var(--gt-border-width) solid var(--gt-coral-text);
+    border-radius: var(--gt-radius-md);
+    background: color-mix(in oklab, var(--gt-coral-text) 14%, var(--gt-surface));
+    color: var(--gt-text);
+    font-weight: 600;
     text-align: left;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
   }
 </style>

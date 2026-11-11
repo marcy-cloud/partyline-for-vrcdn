@@ -1,0 +1,290 @@
+/* Element defaults and the shared button and field styles. */
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--gt-bg);
+  color: var(--gt-text);
+  font: var(--gt-text-body) / 1.45 var(--gt-font-body);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  user-select: none;
+  cursor: default;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1,
+h2 {
+  font-family: var(--gt-font-display);
+  font-weight: 600;
+}
+
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--gt-focus-ring);
+}
+
+::selection {
+  background: var(--gt-pink);
+  color: var(--gt-ink);
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+.mono {
+  font-family: var(--gt-font-code);
+}
+
+/* Retro-computer accents: eyebrows, tags, title bars. */
+.pixel {
+  font: var(--gt-text-pixel) / 1.2 var(--gt-font-pixel);
+  letter-spacing: 0.04em;
+}
+
+/* Buttons. The default is the outline button; .candy and .primary are
+   filled and squish when pressed. One .primary (sunset) per view. */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--gt-space-2);
+  height: var(--gt-control-height);
+  padding: 0 18px;
+  border: var(--gt-border-width) solid var(--gt-lavender);
+  border-radius: var(--gt-radius-pill);
+  background: transparent;
+  color: var(--gt-lavender-text);
+  font: 500 var(--gt-text-body) / 1 var(--gt-font-display);
+  white-space: nowrap;
+  transition:
+    background var(--gt-dur-fast),
+    transform var(--gt-dur-base) var(--gt-ease-pop),
+    box-shadow var(--gt-dur-base) var(--gt-ease-pop);
+}
+
+.btn:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--gt-lavender) 18%, transparent);
+}
+
+.btn.candy,
+.btn.primary {
+  border: 0;
+  background: var(--gt-pink);
+  color: var(--gt-ink);
+  box-shadow: 0 4px 0 var(--gt-lip);
+}
+
+.btn.primary {
+  background: var(--gt-sunset);
+}
+
+.btn.candy:hover:not(:disabled),
+.btn.primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 5px 0 var(--gt-lip);
+}
+
+.btn.candy:hover:not(:disabled) {
+  background: var(--gt-pink);
+}
+
+.btn.primary:hover:not(:disabled) {
+  background: var(--gt-sunset);
+}
+
+.btn.candy:active:not(:disabled),
+.btn.primary:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow: 0 0 0 var(--gt-lip);
+}
+
+.btn.candy:disabled,
+.btn.primary:disabled {
+  box-shadow: none;
+}
+
+.btn.candy:focus-visible,
+.btn.primary:focus-visible {
+  box-shadow: var(--gt-focus-ring);
+}
+
+.btn.danger {
+  border-color: var(--gt-coral-text);
+  color: var(--gt-coral-text);
+}
+
+.btn.danger:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--gt-coral-text) 14%, transparent);
+}
+
+.btn.ghost {
+  border-color: transparent;
+  color: var(--gt-text-muted);
+}
+
+.btn.ghost.danger {
+  color: var(--gt-coral-text);
+}
+
+.btn.ghost:not(.danger):hover:not(:disabled) {
+  background: var(--gt-surface-raised);
+  color: var(--gt-text);
+}
+
+.btn svg,
+.icon-btn svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--gt-radius-pill);
+  background: transparent;
+  color: var(--gt-text-muted);
+  transition: background var(--gt-dur-fast);
+}
+
+.icon-btn:hover:not(:disabled) {
+  background: var(--gt-surface-raised);
+  color: var(--gt-text);
+}
+
+/* Form fields */
+.field {
+  display: grid;
+  gap: 6px;
+}
+
+.field > span {
+  color: var(--gt-text-muted);
+  font-size: var(--gt-text-small);
+  font-weight: 700;
+}
+
+.input {
+  width: 100%;
+  height: var(--gt-control-height);
+  padding: 0 var(--gt-space-3);
+  border: var(--gt-border-width) solid var(--gt-border);
+  border-radius: var(--gt-radius-md);
+  background: var(--gt-surface);
+  user-select: text;
+  transition: border-color var(--gt-dur-fast);
+}
+
+.input:hover:not(:disabled) {
+  border-color: var(--gt-border-strong);
+}
+
+.input:disabled {
+  opacity: 0.45;
+}
+
+.input::placeholder {
+  color: var(--gt-text-faint);
+}
+
+select.input {
+  padding-right: 6px;
+}
+
+/* A little window: sunset title bar over a card, with a sticker shadow. */
+.window {
+  border: var(--gt-border-width) solid var(--gt-border-strong);
+  border-radius: var(--gt-radius-lg);
+  background: var(--gt-surface);
+  box-shadow: var(--gt-shadow-sticker);
+  overflow: hidden;
+}
+
+.titlebar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gt-space-3);
+  height: 32px;
+  padding: 0 var(--gt-space-3) 0 var(--gt-space-4);
+  background: var(--gt-sunset);
+  color: var(--gt-ink);
+}
+
+.titlebar .chrome {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--gt-text-small);
+  line-height: 1;
+}
+
+.titlebar button {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--gt-radius-pill);
+  background: transparent;
+  color: inherit;
+  font-size: var(--gt-text-body);
+  line-height: 1;
+}
+
+.titlebar button:hover {
+  background: color-mix(in oklab, var(--gt-white) 45%, transparent);
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+/* No movement at all for people who ask for that; colours still change. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

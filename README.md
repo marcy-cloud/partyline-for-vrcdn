@@ -129,7 +129,7 @@ internal/libmpv        cgo-free binding to the libmpv client API (purego),
 cmd/probe              headless test tool
 tools/fetch-libmpv     downloads libmpv for Windows (its own Go module)
 scripts/package.ps1    builds the Windows release zip
-frontend/              Svelte 5 + TypeScript UI
+frontend/              Svelte 5 + TypeScript UI (look and theme: STYLE.md)
 ```
 
 The `Controller` only knows the `player.Engine` interface, so the policy is

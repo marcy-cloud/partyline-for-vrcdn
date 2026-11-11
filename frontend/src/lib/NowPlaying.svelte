@@ -1,6 +1,7 @@
 <script lang="ts">
   import Icon from './Icon.svelte'
   import Sparkline from './Sparkline.svelte'
+  import ThemeToggle from './ThemeToggle.svelte'
   import type { AudioDevice, PlayerState, Settings, Status } from './api'
 
   interface Props {
@@ -85,151 +86,182 @@
 </script>
 
 <main>
-  {#if engineError}
-    <section class="callout" role="alert">
-      <h1>Audio engine not available</h1>
-      <p>{engineHelp}</p>
-      <p class="mono detail">{engineError}</p>
-    </section>
-  {:else}
-    <section class="now" data-status={player.status}>
-      <div class="status-line">
-        <span class="pill"><span class="dot"></span>{statusText[player.status]}</span>
-        {#if player.catchingUp}<span class="tag">Catching up</span>{/if}
-      </div>
-
-      {#if player.status === 'idle'}
-        <h1 class="quiet">Nothing playing</h1>
-        <p class="sub">
-          {hasStreams ? 'Pick a stream on the left, or press 1–9.' : 'Add a stream on the left to get started.'}
-        </p>
-      {:else}
-        <h1>{player.label}</h1>
-        <p class="sub mono" title={player.url}>{player.url}</p>
-        {#if player.message}
-          <p class="message num">
-            {player.status === 'reconnecting'
-              ? `${player.message} · retrying (attempt ${player.attempt})`
-              : player.message}
-          </p>
-        {/if}
-      {/if}
-    </section>
-
-    <section class="meters">
-      <div class="meter buffer" class:over={overThreshold}>
-        <div class="meter-head">
-          <span class="meter-label">Buffer</span>
-          <span class="value num">
-            {#if player.status === 'playing' && player.bufferMs >= 0}
-              {player.bufferMs}<small>ms</small>
-            {:else}
-              –
-            {/if}
-          </span>
-        </div>
-        <Sparkline samples={history} threshold={settings.catchUpAboveMs} />
-      </div>
-      <div class="meter">
-        <div class="meter-head">
-          <span class="meter-label">Live for</span>
-          <span class="value num">{uptime}</span>
-        </div>
-        <p class="format">{format || ' '}</p>
-      </div>
-    </section>
-
-    <section class="actions">
-      {#if player.status === 'failed'}
-        <button class="btn primary" onclick={onretry}><Icon name="play" />Try again</button>
-      {:else}
-        <button class="btn" onclick={onstop} disabled={!busy}><Icon name="stop" />Stop</button>
-      {/if}
-      <button
-        class="btn"
-        onclick={onresync}
-        disabled={player.status !== 'playing' && player.status !== 'reconnecting'}
-        title={player.status === 'reconnecting' ? 'Retry now' : 'Drop buffered audio and jump to live'}
-      >
-        <Icon name="resync" />{player.status === 'reconnecting' ? 'Retry now' : 'Resync'}
-      </button>
-    </section>
-  {/if}
-
-  <section class="controls">
-    <label class="control">
-      <span>Volume</span>
-      <input
-        type="range"
-        min="0"
-        max="100"
-        step="1"
-        value={settings.volume}
-        oninput={(e) => onvolume(+e.currentTarget.value, false)}
-        onchange={(e) => onvolume(+e.currentTarget.value, true)}
-        disabled={!!engineError}
-      />
-      <output class="num">{Math.round(settings.volume)}</output>
-    </label>
-
-    <label class="control">
-      <span>Output</span>
-      <select
-        class="input"
-        value={settings.audioDevice}
-        onchange={(e) => onsettings({ audioDevice: e.currentTarget.value })}
-        disabled={!!engineError}
-      >
-        {#each deviceOptions as d (d.name)}
-          <option value={d.name}>{d.description}</option>
-        {/each}
-      </select>
-    </label>
-
-    <div class="toggles">
-      <label class="toggle" title="Keep retrying while a stream is offline, and reconnect if it drops">
-        <input
-          type="checkbox"
-          checked={settings.autoReconnect}
-          onchange={(e) => onsettings({ autoReconnect: e.currentTarget.checked })}
-        />
-        Auto-reconnect
-      </label>
-      <label class="toggle" title="Play slightly fast to drain delay that builds up after network hiccups">
-        <input
-          type="checkbox"
-          checked={settings.autoCatchUp}
-          onchange={(e) => onsettings({ autoCatchUp: e.currentTarget.checked })}
-        />
-        Auto catch-up above
-      </label>
-      <label class="threshold">
-        <input
-          class="input num"
-          type="number"
-          min="100"
-          max="5000"
-          step="50"
-          value={settings.catchUpAboveMs}
-          onchange={(e) => onsettings({ catchUpAboveMs: +e.currentTarget.value || settings.catchUpAboveMs })}
-          disabled={!settings.autoCatchUp}
-          aria-label="Catch-up threshold in milliseconds"
-        />
-        ms
-      </label>
+  <div class="window">
+    <div class="titlebar">
+      <span class="pixel" aria-hidden="true">now-playing.exe</span>
+      <span class="chrome">
+        <ThemeToggle />
+        <span aria-hidden="true">♡ ✿</span>
+      </span>
     </div>
-  </section>
 
-  <footer class="mono">{engine}</footer>
+    <div class="body">
+      {#if engineError}
+        <section class="callout" role="alert">
+          <h1>Audio engine not available</h1>
+          <p>{engineHelp}</p>
+          <p class="mono detail">{engineError}</p>
+        </section>
+      {:else}
+        <section class="now" data-status={player.status}>
+          <div class="status-line">
+            <span class="badge pixel"><span class="dot"></span>{statusText[player.status]}</span>
+            {#if player.catchingUp}<span class="badge pixel catching">Catching up</span>{/if}
+          </div>
+
+          {#if player.status === 'idle'}
+            <h1 class="quiet">Nothing playing</h1>
+            <p class="sub">
+              {hasStreams ? 'Pick a stream on the left, or press 1–9.' : 'Add a stream on the left to get started.'}
+            </p>
+            <div class="horizon" aria-hidden="true">
+              <div class="sun"></div>
+              <div class="grid"></div>
+            </div>
+          {:else}
+            <h1>{player.label}</h1>
+            <p class="sub mono" title={player.url}>{player.url}</p>
+            {#if player.message}
+              <p class="message num">
+                {player.status === 'reconnecting'
+                  ? `${player.message} · retrying (attempt ${player.attempt})`
+                  : player.message}
+              </p>
+            {/if}
+          {/if}
+        </section>
+
+        <section class="meters">
+          <div class="meter buffer" class:over={overThreshold}>
+            <div class="meter-head">
+              <span class="meter-label pixel">Buffer</span>
+              <span class="value num">
+                {#if player.status === 'playing' && player.bufferMs >= 0}
+                  {player.bufferMs}<small>ms</small>
+                {:else}
+                  –
+                {/if}
+              </span>
+            </div>
+            <Sparkline samples={history} threshold={settings.catchUpAboveMs} />
+          </div>
+          <div class="meter">
+            <div class="meter-head">
+              <span class="meter-label pixel">Live for</span>
+              <span class="value num">{uptime}</span>
+            </div>
+            <p class="format">{format || ' '}</p>
+          </div>
+        </section>
+
+        <section class="actions">
+          {#if player.status === 'failed'}
+            <button class="btn primary" onclick={onretry}><Icon name="play" />Try again</button>
+          {:else}
+            <button class="btn candy" onclick={onstop} disabled={!busy}><Icon name="stop" />Stop</button>
+          {/if}
+          <button
+            class="btn"
+            onclick={onresync}
+            disabled={player.status !== 'playing' && player.status !== 'reconnecting'}
+            title={player.status === 'reconnecting' ? 'Retry now' : 'Drop buffered audio and jump to live'}
+          >
+            <Icon name="resync" />{player.status === 'reconnecting' ? 'Retry now' : 'Resync'}
+          </button>
+        </section>
+      {/if}
+
+      <section class="controls">
+        <label class="control">
+          <span>Volume</span>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            step="1"
+            value={settings.volume}
+            style="--fill: {settings.volume}%"
+            oninput={(e) => onvolume(+e.currentTarget.value, false)}
+            onchange={(e) => onvolume(+e.currentTarget.value, true)}
+            disabled={!!engineError}
+          />
+          <output class="num">{Math.round(settings.volume)}</output>
+        </label>
+
+        <label class="control">
+          <span>Output</span>
+          <select
+            class="input"
+            value={settings.audioDevice}
+            onchange={(e) => onsettings({ audioDevice: e.currentTarget.value })}
+            disabled={!!engineError}
+          >
+            {#each deviceOptions as d (d.name)}
+              <option value={d.name}>{d.description}</option>
+            {/each}
+          </select>
+        </label>
+
+        <div class="toggles">
+          <label class="toggle" title="Keep retrying while a stream is offline, and reconnect if it drops">
+            <input
+              type="checkbox"
+              checked={settings.autoReconnect}
+              onchange={(e) => onsettings({ autoReconnect: e.currentTarget.checked })}
+            />
+            Auto-reconnect
+          </label>
+          <label class="toggle" title="Play slightly fast to drain delay that builds up after network hiccups">
+            <input
+              type="checkbox"
+              checked={settings.autoCatchUp}
+              onchange={(e) => onsettings({ autoCatchUp: e.currentTarget.checked })}
+            />
+            Auto catch-up above
+          </label>
+          <label class="threshold">
+            <input
+              class="input num"
+              type="number"
+              min="100"
+              max="5000"
+              step="50"
+              value={settings.catchUpAboveMs}
+              onchange={(e) => onsettings({ catchUpAboveMs: +e.currentTarget.value || settings.catchUpAboveMs })}
+              disabled={!settings.autoCatchUp}
+              aria-label="Catch-up threshold in milliseconds"
+            />
+            ms
+          </label>
+        </div>
+      </section>
+
+      <footer class="mono">{engine}</footer>
+    </div>
+  </div>
 </main>
 
 <style>
   main {
+    min-width: 0;
+    min-height: 0;
+    /* The extra right and bottom space is where the sticker shadow lands. */
+    padding: var(--gt-space-4) 21px 21px var(--gt-space-4);
+  }
+
+  .window {
     display: flex;
     flex-direction: column;
-    gap: 20px;
-    min-width: 0;
-    padding: 24px 28px 12px;
+    height: 100%;
+  }
+
+  .body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--gt-space-4);
+    min-height: 0;
+    padding: var(--gt-space-4) 20px var(--gt-space-2);
     overflow-y: auto;
   }
 
@@ -239,54 +271,55 @@
 
   /* Now playing */
   .now {
-    --status: var(--faint);
+    position: relative;
+    --status: var(--gt-lavender);
+    --status-text: var(--gt-text-muted);
     /* Room for the message line, so the meters don't jump when it appears. */
-    min-height: 128px;
+    min-height: 116px;
   }
   .now[data-status='playing'] {
-    --status: var(--ok);
+    --status: var(--gt-mint);
+    --status-text: var(--gt-mint-text);
   }
   .now[data-status='connecting'] {
-    --status: var(--info);
+    --status: var(--gt-aqua);
+    --status-text: var(--gt-aqua-text);
   }
   .now[data-status='reconnecting'] {
-    --status: var(--warn);
+    --status: var(--gt-butter);
+    --status-text: var(--gt-butter-text);
   }
   .now[data-status='failed'] {
-    --status: var(--bad);
+    --status: var(--gt-coral-text);
+    --status-text: var(--gt-coral-text);
   }
 
   .status-line {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 10px;
+    gap: var(--gt-space-2);
+    margin-bottom: var(--gt-space-2);
   }
 
-  .pill,
-  .tag {
+  .badge {
     display: inline-flex;
     align-items: center;
     gap: 7px;
-    height: 24px;
-    padding: 0 10px;
-    border-radius: 12px;
-    font-size: 12px;
-    font-weight: 600;
+    height: 26px;
+    padding: 0 var(--gt-space-3);
+    border-radius: var(--gt-radius-pill);
+    background: color-mix(in oklab, var(--status) 22%, var(--gt-surface));
+    color: var(--status-text);
   }
 
-  .pill {
-    background: color-mix(in srgb, var(--status) 14%, transparent);
-    color: var(--status);
-  }
-
-  .now[data-status='idle'] .pill {
-    color: var(--muted);
+  .badge.catching {
+    --status: var(--gt-butter);
+    --status-text: var(--gt-butter-text);
   }
 
   .dot {
-    width: 7px;
-    height: 7px;
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
     background: currentColor;
   }
@@ -296,57 +329,109 @@
     animation: pulse 1.2s ease-in-out infinite;
   }
 
-  .tag {
-    border: 1px solid var(--line);
-    color: var(--warn);
-  }
-
   h1 {
-    font-size: 28px;
-    font-weight: 650;
+    font-size: var(--gt-text-h1);
     line-height: 1.2;
-    letter-spacing: -0.01em;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   h1.quiet {
-    color: var(--muted);
+    color: var(--gt-text-muted);
   }
 
   .sub {
-    margin-top: 4px;
-    color: var(--muted);
-    font-size: 12.5px;
+    margin-top: 2px;
+    color: var(--gt-text-muted);
+    font-size: var(--gt-text-small);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   .sub:not(.mono) {
-    font-size: 14px;
+    font-size: var(--gt-text-body);
   }
 
   .message {
-    margin-top: 8px;
-    color: var(--status);
+    margin-top: 6px;
+    color: var(--status-text);
+    font-weight: 600;
     overflow-wrap: anywhere;
+  }
+
+  /* Idle decoration: a striped sun setting behind a grid horizon. It sits
+     beside the text, never behind it. */
+  .horizon {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 200px;
+    height: 100px;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .sun {
+    position: absolute;
+    left: 50%;
+    bottom: 12px;
+    width: 84px;
+    aspect-ratio: 1;
+    translate: -50% 0;
+    border-radius: 50%;
+    background: var(--gt-sunset);
+    /* Stripes: cut-outs that get thicker towards the bottom. */
+    -webkit-mask: linear-gradient(
+      #000 52%,
+      transparent 52% 56%,
+      #000 56% 65%,
+      transparent 65% 71%,
+      #000 71% 79%,
+      transparent 79% 87%,
+      #000 87%
+    );
+    mask: linear-gradient(#000 52%, transparent 52% 56%, #000 56% 65%, transparent 65% 71%, #000 71% 79%, transparent 79% 87%, #000 87%);
+  }
+
+  .grid {
+    position: absolute;
+    inset: auto -40% 0;
+    height: 40px;
+    --grid-line: var(--gt-lavender);
+    background:
+      repeating-linear-gradient(90deg, var(--grid-line) 0 1px, transparent 1px 22px),
+      repeating-linear-gradient(0deg, var(--grid-line) 0 1px, transparent 1px 10px) var(--gt-surface);
+    transform: perspective(70px) rotateX(50deg);
+    transform-origin: bottom;
+    animation: scroll 8s linear infinite;
+  }
+
+  :global([data-theme='dark']) .grid {
+    --grid-line: var(--gt-pink);
+  }
+
+  @keyframes scroll {
+    to {
+      background-position:
+        0 0,
+        0 10px;
+    }
   }
 
   /* Meters */
   .meters {
     display: grid;
     grid-template-columns: 1.6fr 1fr;
-    gap: 12px;
+    gap: var(--gt-space-3);
   }
 
   .meter {
-    padding: 12px 14px 10px;
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    background: var(--panel);
-    color: var(--muted);
+    padding: 10px 14px var(--gt-space-2);
+    border-radius: var(--gt-radius-md);
+    background: var(--gt-surface-raised);
+    color: var(--gt-text-muted);
     min-width: 0;
   }
 
@@ -354,76 +439,69 @@
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-    gap: 12px;
+    gap: var(--gt-space-3);
   }
 
   .meter-label {
-    font-size: 11px;
-    font-weight: 650;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    color: var(--gt-text-muted);
+    text-transform: lowercase;
   }
 
   .value {
-    color: var(--text);
-    font-size: 26px;
-    font-weight: 600;
-    line-height: 1.1;
+    color: var(--gt-text);
+    font: 600 26px / 1.1 var(--gt-font-display);
   }
 
   .value small {
     margin-left: 3px;
-    color: var(--muted);
-    font-size: 13px;
+    color: var(--gt-text-muted);
+    font-size: var(--gt-text-small);
     font-weight: 500;
   }
 
+  /* The trace takes the meter's colour. */
   .buffer {
-    color: var(--ok);
+    color: var(--gt-lavender-text);
   }
 
-  .buffer .meter-label {
-    color: var(--muted);
-  }
-
-  .buffer.over {
-    color: var(--warn);
-  }
-
+  .buffer.over,
   .buffer.over .value {
-    color: var(--warn);
+    color: var(--gt-coral-text);
   }
 
   .format {
     height: 44px;
     display: flex;
     align-items: flex-end;
-    font-size: 12.5px;
+    font-size: var(--gt-text-small);
   }
 
   .actions {
     display: flex;
-    gap: 8px;
+    gap: var(--gt-space-2);
+    /* Room for the candy button's bottom lip. */
+    padding-bottom: var(--gt-space-1);
   }
 
   /* Controls */
   .controls {
     display: grid;
-    gap: 12px;
-    padding-top: 18px;
-    border-top: 1px solid var(--line);
+    gap: 10px;
+    padding-top: var(--gt-space-4);
+    border-top: var(--gt-border-width) dotted var(--gt-border);
   }
 
   .control {
     display: grid;
     grid-template-columns: 64px 1fr 32px;
     align-items: center;
-    gap: 12px;
+    gap: var(--gt-space-3);
   }
 
   .control > span {
-    color: var(--muted);
-    font-size: 13px;
+    color: var(--gt-text-muted);
+    font-weight: 700;
+    font-size: var(--gt-text-small);
   }
 
   .control select {
@@ -433,12 +511,36 @@
 
   output {
     text-align: right;
-    color: var(--muted);
+    color: var(--gt-text-muted);
   }
 
+  /* Volume: a candy bar that fills with the sunset. --fill is set inline. */
   input[type='range'] {
+    appearance: none;
     width: 100%;
-    accent-color: var(--accent);
+    height: 22px;
+    margin: 0;
+    border-radius: var(--gt-radius-pill);
+    background: transparent;
+  }
+
+  input[type='range']::-webkit-slider-runnable-track {
+    height: 12px;
+    border: var(--gt-border-width) solid var(--gt-border);
+    border-radius: var(--gt-radius-pill);
+    background:
+      linear-gradient(to right, transparent var(--fill), var(--gt-surface-raised) var(--fill)),
+      var(--gt-sunset);
+  }
+
+  input[type='range']::-webkit-slider-thumb {
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    margin-top: -6px;
+    border: var(--gt-border-width) solid var(--gt-lavender);
+    border-radius: 50%;
+    background: var(--gt-white);
   }
 
   .toggles {
@@ -452,15 +554,46 @@
   .toggle {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    font-size: 13px;
+    gap: var(--gt-space-2);
+    font-size: var(--gt-text-small);
+    font-weight: 600;
   }
 
+  /* A checkbox drawn as a switch: mint when on. */
   .toggle input {
-    width: 15px;
-    height: 15px;
+    appearance: none;
+    position: relative;
+    flex: none;
+    width: 38px;
+    height: 22px;
     margin: 0;
-    accent-color: var(--accent);
+    border: var(--gt-border-width) solid var(--gt-border);
+    border-radius: var(--gt-radius-pill);
+    background: var(--gt-surface-raised);
+    cursor: pointer;
+    transition: background var(--gt-dur-base);
+  }
+
+  .toggle input::before {
+    content: '';
+    position: absolute;
+    top: 1px;
+    left: 1px;
+    width: 16px;
+    height: 16px;
+    border: var(--gt-border-width) solid var(--gt-lavender);
+    border-radius: 50%;
+    background: var(--gt-white);
+    transition: translate var(--gt-dur-base) var(--gt-ease-pop);
+  }
+
+  .toggle input:checked {
+    border-color: var(--gt-lip);
+    background: var(--gt-mint);
+  }
+
+  .toggle input:checked::before {
+    translate: 16px 0;
   }
 
   .threshold {
@@ -468,20 +601,20 @@
     align-items: center;
     gap: 6px;
     margin-left: -12px;
-    color: var(--muted);
-    font-size: 13px;
+    color: var(--gt-text-muted);
+    font-size: var(--gt-text-small);
   }
 
   .threshold .input {
-    width: 72px;
-    height: 28px;
-    padding: 0 6px;
+    width: 76px;
+    height: 30px;
+    padding: 0 var(--gt-space-2);
+    border-radius: var(--gt-radius-sm);
   }
 
   footer {
     margin-top: auto;
-    padding-top: 4px;
-    color: var(--faint);
+    color: var(--gt-text-faint);
     font-size: 11px;
     min-height: 16px;
   }
@@ -490,33 +623,21 @@
   .callout {
     display: grid;
     gap: 10px;
-    padding: 18px 20px;
-    border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent);
-    border-radius: 10px;
-    background: color-mix(in srgb, var(--warn) 8%, transparent);
+    padding: var(--gt-space-4) 20px;
+    border: var(--gt-border-width) solid var(--gt-butter-text);
+    border-radius: var(--gt-radius-md);
+    background: color-mix(in oklab, var(--gt-butter) 22%, var(--gt-surface));
     user-select: text;
   }
 
   .callout h1 {
-    font-size: 18px;
+    font-size: var(--gt-text-h3);
     white-space: normal;
   }
 
   .detail {
-    color: var(--muted);
+    color: var(--gt-text-muted);
     font-size: 12px;
     overflow-wrap: anywhere;
-  }
-
-  @keyframes pulse {
-    50% {
-      opacity: 0.3;
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .dot {
-      animation: none !important;
-    }
   }
 </style>

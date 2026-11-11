@@ -63,8 +63,14 @@ foreach ($line in $modules) {
 $goRoot = go env GOROOT
 New-Item -ItemType Directory -Force -Path (Join-Path $licenses "go") | Out-Null
 Copy-Item (Join-Path $goRoot "LICENSE") (Join-Path $licenses "go")
-New-Item -ItemType Directory -Force -Path (Join-Path $licenses "svelte") | Out-Null
-Copy-Item (Join-Path $root "frontend\node_modules\svelte\LICENSE.md") (Join-Path $licenses "svelte")
+# ...and of what is compiled into the UI.
+$uiPackages = "svelte", "@fontsource-variable/fredoka", "@fontsource-variable/nunito", "@fontsource/vt323"
+foreach ($package in $uiPackages) {
+    $target = Join-Path $licenses ($package -replace '[\\/]', '_')
+    New-Item -ItemType Directory -Force -Path $target | Out-Null
+    Get-ChildItem (Join-Path $root "frontend\node_modules\$package") -File -Filter "LICENSE*" |
+        Copy-Item -Destination $target
+}
 
 $zip = Join-Path $root "dist\$name.zip"
 if (Test-Path $zip) { Remove-Item $zip -Force }

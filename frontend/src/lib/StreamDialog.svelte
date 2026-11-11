@@ -55,9 +55,15 @@
   }
 </script>
 
-<dialog bind:this={dialog} {onclose} aria-labelledby="stream-dialog-title">
+<dialog class="window" bind:this={dialog} {onclose} aria-labelledby="stream-dialog-title">
+  <div class="titlebar">
+    <h2 id="stream-dialog-title" class="pixel">{isNew ? 'Add stream' : 'Edit stream'}</h2>
+    <span class="chrome">
+      <span aria-hidden="true">♡ ✿</span>
+      <button type="button" onclick={onclose} aria-label="Close" title="Close">×</button>
+    </span>
+  </div>
   <form onsubmit={submit}>
-    <h2 id="stream-dialog-title">{isNew ? 'Add stream' : 'Edit stream'}</h2>
 
     <label class="field">
       <span>Stream name or URL</span>
@@ -137,44 +143,52 @@
 
 <style>
   dialog {
-    width: min(460px, calc(100vw - 48px));
+    width: min(480px, calc(100vw - 48px));
     padding: 0;
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    background: var(--panel);
-    color: var(--text);
-    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+    color: var(--gt-text);
+  }
+
+  dialog[open] {
+    animation: pop var(--gt-dur-slow) var(--gt-ease-pop);
   }
 
   dialog::backdrop {
-    background: rgba(8, 9, 12, 0.66);
+    background: color-mix(in oklab, var(--gt-bg) 75%, transparent);
+  }
+
+  @keyframes pop {
+    from {
+      opacity: 0;
+      scale: 0.9;
+    }
+  }
+
+  h2 {
+    font-weight: 400;
+    text-transform: lowercase;
   }
 
   form {
     display: grid;
-    gap: 16px;
-    padding: 22px;
-  }
-
-  h2 {
-    font-size: 17px;
-    font-weight: 650;
+    gap: var(--gt-space-4);
+    padding: 20px;
   }
 
   em {
     font-style: normal;
     font-weight: 400;
-    color: var(--faint);
+    color: var(--gt-text-faint);
   }
 
   small {
-    min-height: 17px;
-    color: var(--faint);
-    font-size: 12px;
+    min-height: 18px;
+    color: var(--gt-text-muted);
+    font-size: var(--gt-text-small);
   }
 
   .error {
-    color: var(--bad);
+    color: var(--gt-coral-text);
+    font-weight: 600;
     user-select: text;
   }
 
@@ -182,7 +196,8 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    margin-top: 4px;
+    /* Room for the candy buttons' bottom lip. */
+    padding-bottom: var(--gt-space-1);
   }
 
   .spacer {

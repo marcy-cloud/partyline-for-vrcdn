@@ -28,7 +28,7 @@
   }
 
   .guide {
-    stroke: var(--faint);
+    stroke: var(--gt-text-faint);
     stroke-width: 1;
     stroke-dasharray: 3 4;
     vector-effect: non-scaling-stroke;
@@ -37,8 +37,9 @@
   .trace {
     fill: none;
     stroke: currentColor;
-    stroke-width: 1.5;
+    stroke-width: 2.5;
     stroke-linejoin: round;
+    stroke-linecap: round;
     vector-effect: non-scaling-stroke;
   }
 </style>

@@ -4,7 +4,7 @@ VRCDN Low Latency Player is licensed under the GNU General Public License,
 version 3 or (at your option) any later version; see `LICENSE`.
 
 Release builds for Windows contain the software below. The licence texts of
-the Go modules and of Svelte are in the `licenses` folder of a release.
+the Go modules, Svelte and the fonts are in the `licenses` folder of a release.
 
 ## libmpv (inside the Windows exe)
 
@@ -53,3 +53,4 @@ To use a different libmpv, put its `libmpv-2.dll` next to the exe or set
 | Package | Licence |
 | --- | --- |
 | Svelte (runtime compiled into the UI) | MIT |
+| Fredoka, Nunito and VT323 fonts (via Fontsource) | OFL-1.1 |

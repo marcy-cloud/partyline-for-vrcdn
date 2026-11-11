@@ -1,0 +1,89 @@
+/* Glam Terminal design tokens. Every colour, font, radius, shadow and
+   duration in the UI comes from here; see STYLE.md. */
+:root,
+[data-theme='light'] {
+  color-scheme: light;
+
+  /* Pastel Dream */
+  --gt-bg: #fff4fb;
+  --gt-surface: #ffffff;
+  --gt-surface-raised: #fbe8ff;
+  --gt-border: #f3cfe8;
+  --gt-border-strong: #b967ff;
+  --gt-text: #2e1a47;
+  --gt-text-muted: #6b4f8c;
+  --gt-text-faint: #7a5e9e;
+
+  /* Candy fills: the same in both themes. Text on them is always ink. */
+  --gt-pink: #ff71ce;
+  --gt-lavender: #b967ff;
+  --gt-aqua: #01cdfe;
+  --gt-mint: #05ffa1;
+  --gt-butter: #fffb96;
+  --gt-ink: #2b0a24;
+  --gt-white: #ffffff;
+
+  /* Text-safe versions of the candy hues. */
+  --gt-pink-text: #c2187f;
+  --gt-lavender-text: #7b2fd1;
+  --gt-aqua-text: #00708c;
+  --gt-mint-text: #00805a;
+  --gt-coral-text: #c4264a;
+  --gt-butter-text: #8a5a00;
+
+  --gt-sunset: linear-gradient(120deg, #ff71ce, #b967ff 55%, #01cdfe);
+
+  --gt-font-display: 'Fredoka Variable', ui-rounded, 'SF Pro Rounded', system-ui, sans-serif;
+  --gt-font-body: 'Nunito Variable', ui-rounded, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --gt-font-pixel: 'VT323', ui-monospace, Menlo, monospace;
+  --gt-font-code: ui-monospace, 'Cascadia Mono', 'SF Mono', Menlo, Consolas, monospace;
+
+  --gt-text-h1: 30px;
+  --gt-text-h3: 20px;
+  --gt-text-body: 15px;
+  --gt-text-small: 13px;
+  --gt-text-pixel: 18px;
+
+  --gt-radius-sm: 10px;
+  --gt-radius-md: 16px;
+  --gt-radius-lg: 24px;
+  --gt-radius-pill: 999px;
+  --gt-border-width: 2px;
+  --gt-control-height: 38px;
+
+  --gt-shadow-sticker: 5px 5px 0 var(--gt-lavender);
+  --gt-lip: color-mix(in oklab, var(--gt-lavender) 70%, var(--gt-ink));
+  --gt-focus-ring: 0 0 0 2px var(--gt-bg), 0 0 0 5px var(--gt-aqua);
+
+  --gt-space-1: 4px;
+  --gt-space-2: 8px;
+  --gt-space-3: 12px;
+  --gt-space-4: 16px;
+  --gt-space-5: 24px;
+
+  --gt-dur-fast: 120ms;
+  --gt-dur-base: 200ms;
+  --gt-dur-slow: 340ms;
+  --gt-ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Midnight Mall */
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  --gt-bg: #1a1033;
+  --gt-surface: #251845;
+  --gt-surface-raised: #32225c;
+  --gt-border: #4a3580;
+  --gt-border-strong: #ff71ce;
+  --gt-text: #fff0fb;
+  --gt-text-muted: #c9b3f0;
+  --gt-text-faint: #9784c4;
+
+  --gt-pink-text: #ff71ce;
+  --gt-lavender-text: #c88dff;
+  --gt-aqua-text: #01cdfe;
+  --gt-mint-text: #05ffa1;
+  --gt-coral-text: #ff6b8b;
+  --gt-butter-text: #fffb96;
+}

@@ -24,8 +24,8 @@
 
 <aside>
   <header>
-    <h2>Streams</h2>
-    <button class="icon-btn" onclick={onadd} aria-label="Add stream" title="Add stream">
+    <h2>Streams <span class="deco" aria-hidden="true">♡</span></h2>
+    <button class="icon-btn add" onclick={onadd} aria-label="Add stream" title="Add stream">
       <Icon name="plus" />
     </button>
   </header>
@@ -42,7 +42,7 @@
         {@const active = player.streamId === s.id && player.status !== 'idle'}
         <li class:active data-status={active ? player.status : undefined}>
           <button class="row" onclick={() => onplay(s.id)} {disabled} title={i < 9 ? `Play (press ${i + 1})` : 'Play'}>
-            <span class="key num" aria-hidden="true">{i < 9 ? i + 1 : ''}</span>
+            <span class="key pixel" aria-hidden="true">{i < 9 ? i + 1 : ''}</span>
             <span class="text">
               <span class="label">{s.label}</span>
               <span class="detail mono">{detail(s)}</span>
@@ -63,37 +63,60 @@
     display: flex;
     flex-direction: column;
     min-height: 0;
-    background: var(--panel);
-    border-right: 1px solid var(--line);
+    background: var(--gt-surface);
+    border-right: var(--gt-border-width) solid var(--gt-border);
   }
 
   header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 14px 10px 8px 16px;
+    padding: var(--gt-space-4) var(--gt-space-3) var(--gt-space-2) var(--gt-space-4);
   }
 
   h2 {
-    font-size: 11px;
-    font-weight: 650;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--muted);
+    font-size: var(--gt-text-h3);
+  }
+
+  .deco {
+    color: var(--gt-pink-text);
+  }
+
+  /* A small candy button. */
+  .add {
+    background: var(--gt-pink);
+    color: var(--gt-ink);
+    box-shadow: 0 3px 0 var(--gt-lip);
+    transition:
+      transform var(--gt-dur-base) var(--gt-ease-pop),
+      box-shadow var(--gt-dur-base) var(--gt-ease-pop);
+  }
+
+  .add:hover:not(:disabled) {
+    background: var(--gt-pink);
+    color: var(--gt-ink);
+  }
+
+  .add:active {
+    transform: translateY(3px);
+    box-shadow: 0 0 0 var(--gt-lip);
+  }
+
+  .add:focus-visible {
+    box-shadow: var(--gt-focus-ring);
   }
 
   ul {
     flex: 1;
     min-height: 0;
     margin: 0;
-    padding: 0 8px 8px;
+    padding: var(--gt-space-1) var(--gt-space-2) var(--gt-space-2);
     list-style: none;
     overflow-y: auto;
   }
 
   li {
     position: relative;
-    border-radius: var(--radius);
   }
 
   li + li {
@@ -105,32 +128,38 @@
     align-items: center;
     gap: 10px;
     width: 100%;
-    padding: 8px 40px 8px 8px;
+    padding: var(--gt-space-2) 40px var(--gt-space-2) var(--gt-space-3);
     border: 0;
-    border-radius: var(--radius);
+    border-radius: var(--gt-radius-md);
     background: transparent;
     text-align: left;
+    transition: background var(--gt-dur-fast);
   }
 
   .row:hover:not(:disabled) {
-    background: var(--raised);
+    background: var(--gt-surface-raised);
   }
 
   li.active .row {
-    background: var(--raised);
-    box-shadow: inset 2px 0 0 var(--status, var(--accent));
+    background: var(--gt-surface-raised);
+    box-shadow: inset 4px 0 0 var(--gt-pink);
+  }
+
+  li.active .row:focus-visible {
+    box-shadow: var(--gt-focus-ring);
   }
 
   .key {
     flex: none;
-    width: 20px;
-    height: 20px;
     display: grid;
     place-items: center;
-    border: 1px solid var(--line);
-    border-radius: 5px;
-    color: var(--faint);
-    font-size: 11px;
+    width: 24px;
+    height: 24px;
+    border: var(--gt-border-width) solid var(--gt-border);
+    border-radius: var(--gt-radius-pill);
+    background: var(--gt-surface);
+    color: var(--gt-text-muted);
+    letter-spacing: 0;
   }
 
   .text {
@@ -147,31 +176,36 @@
   }
 
   .label {
-    font-weight: 550;
+    font-weight: 700;
   }
 
   .detail {
-    color: var(--muted);
+    color: var(--gt-text-muted);
     font-size: 11.5px;
   }
 
   li[data-status='playing'] {
-    --status: var(--ok);
+    --status: var(--gt-mint);
   }
   li[data-status='connecting'] {
-    --status: var(--info);
+    --status: var(--gt-aqua);
   }
   li[data-status='reconnecting'] {
-    --status: var(--warn);
+    --status: var(--gt-butter);
   }
   li[data-status='failed'] {
-    --status: var(--bad);
+    --status: var(--gt-coral-text);
   }
 
+  /* Outlined so the pale fills still read on a pale row. */
   .dot {
-    flex: none;
-    width: 8px;
-    height: 8px;
+    position: absolute;
+    top: 50%;
+    right: 14px;
+    translate: 0 -50%;
+    width: 12px;
+    height: 12px;
+    border: var(--gt-border-width) solid var(--gt-text);
     border-radius: 50%;
     background: var(--status);
   }
@@ -189,6 +223,10 @@
     opacity: 0;
   }
 
+  .edit:hover:not(:disabled) {
+    background: var(--gt-surface);
+  }
+
   li:hover .edit,
   .edit:focus-visible {
     opacity: 1;
@@ -201,25 +239,13 @@
 
   .empty {
     display: grid;
-    gap: 10px;
+    gap: var(--gt-space-3);
     justify-items: start;
-    padding: 12px 16px;
+    padding: var(--gt-space-2) var(--gt-space-4) var(--gt-space-4);
   }
 
   .hint {
-    color: var(--muted);
-    font-size: 13px;
-  }
-
-  @keyframes pulse {
-    50% {
-      opacity: 0.3;
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .dot {
-      animation: none !important;
-    }
+    color: var(--gt-text-muted);
+    font-size: var(--gt-text-small);
   }
 </style>

@@ -19,14 +19,14 @@ func main() {
 	err := wails.Run(&options.App{
 		Title:     appTitle,
 		Width:     880,
-		Height:    580,
+		Height:    620,
 		MinWidth:  720,
 		MinHeight: 480,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
 		// Matches --bg in the stylesheet so there's no flash while loading.
-		BackgroundColour: &options.RGBA{R: 14, G: 15, B: 19, A: 1},
+		BackgroundColour: &options.RGBA{R: 26, G: 16, B: 51, A: 1}, // --gt-bg of the dark theme
 		OnStartup:        app.startup,
 		OnShutdown:       app.shutdown,
 		// Two copies would fight over the same audio device and config.
