@@ -12,6 +12,10 @@
   }
   let { streams, player, disabled, onplay, onedit, onadd }: Props = $props()
 
+  // The maintainer's own stream wears a little hearts flair in the list.
+  const flaired = new Set(['marcymarcy'])
+  const hasFlair = (s: Stream) => flaired.has(s.source.toLowerCase())
+
   function detail(s: Stream): string {
     if (!isCustomSource(s.source)) return `${s.source} · ${transportLabel(s.transport)}`
     try {
@@ -44,7 +48,12 @@
           <button class="row" onclick={() => onplay(s.id)} {disabled} title={i < 9 ? `Play (press ${i + 1})` : 'Play'}>
             <span class="key pixel" aria-hidden="true">{i < 9 ? i + 1 : ''}</span>
             <span class="text">
-              <span class="label">{s.label}</span>
+              <span class="name">
+                <span class="label">{s.label}</span>
+                {#if hasFlair(s)}
+                  <span class="flair" aria-hidden="true"><i>♥</i><i>♥</i><i>♥</i></span>
+                {/if}
+              </span>
               <span class="detail mono">{detail(s)}</span>
             </span>
             {#if active}<span class="dot" aria-label={player.status}></span>{/if}
@@ -177,6 +186,52 @@
 
   .label {
     font-weight: 700;
+  }
+
+  .name {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  /* A profile-badge style chip: three hearts that beat one after another. */
+  .flair {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    height: 18px;
+    padding: 0 7px;
+    border-radius: var(--gt-radius-pill);
+    background: var(--gt-sunset);
+    color: var(--gt-ink);
+    font-size: 10px;
+    line-height: 1;
+  }
+
+  .flair i {
+    font-style: normal;
+    animation: beat 1.8s var(--gt-ease-pop) infinite;
+  }
+
+  .flair i:nth-child(2) {
+    animation-delay: 0.2s;
+  }
+
+  .flair i:nth-child(3) {
+    animation-delay: 0.4s;
+  }
+
+  @keyframes beat {
+    0%,
+    40%,
+    100% {
+      scale: 1;
+    }
+    20% {
+      scale: 1.45;
+    }
   }
 
   .detail {

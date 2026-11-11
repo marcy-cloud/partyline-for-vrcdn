@@ -23,6 +23,7 @@ export function createMock(): Api {
           { id: 'c', label: 'Guest (offline)', source: 'guest_offline', transport: 'flv' },
           { id: 'd', label: 'Backup relay', source: 'rtsp://relay.example.net:8554/live/backup', transport: 'rtsp' },
           { id: 'e', label: 'Closing set', source: 'closer', transport: 'mpegts' },
+          { id: 'f', label: 'Marcy', source: 'marcymarcy', transport: 'rtsp' },
         ]
   let settings: Settings = {
     audioDevice: 'auto',

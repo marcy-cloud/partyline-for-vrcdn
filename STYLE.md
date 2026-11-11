@@ -19,7 +19,7 @@ sunset gradient, squishy candy buttons and little retro windows.
 ## Rules of thumb
 
 - The sunset gradient is for title bars, the one primary button in a view,
-  the volume bar and the idle sun. Nowhere else.
+  the volume bar, the idle sun and the hearts flair chip. Nowhere else.
 - Text on a candy fill or on the gradient is always `--gt-ink`.
 - Status is never colour alone: the badge carries the word.
 - Hearts and flowers are decoration, marked `aria-hidden`, and stay out of
