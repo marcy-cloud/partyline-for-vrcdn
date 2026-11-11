@@ -13,6 +13,18 @@ import (
 // tickInterval is how often the buffer and position are sampled.
 const tickInterval = 250 * time.Millisecond
 
+// levelInterval is how often the signal level is sampled for the meter:
+// about 20 times a second once timer granularity is added.
+const levelInterval = 40 * time.Millisecond
+
+// The level meter is ffmpeg's astats filter, which tags each audio frame
+// with its per-channel peak. It only measures; the audio passes through
+// untouched and unbuffered, ahead of the volume control.
+const (
+	levelFilter   = "@levels:lavfi=[astats=metadata=1:reset=1:measure_perchannel=Peak_level:measure_overall=none]"
+	levelProperty = "af-metadata/levels"
+)
+
 // MPVEngine plays audio through an embedded libmpv core configured for
 // minimum latency.
 type MPVEngine struct {
@@ -89,7 +101,7 @@ func newMPVEngine(clientName string, extra ...[2]string) (*MPVEngine, error) {
 
 	// Options vary a little between mpv versions; an unknown one shouldn't
 	// stop the player from starting.
-	for _, group := range [][][2]string{embedOptions, lowLatencyOptions, {{"audio-client-name", clientName}}, extra} {
+	for _, group := range [][][2]string{embedOptions, lowLatencyOptions, {{"af", levelFilter}, {"audio-client-name", clientName}}, extra} {
 		for _, kv := range group {
 			_ = m.SetOption(kv[0], kv[1])
 		}
@@ -237,15 +249,22 @@ func (e *MPVEngine) loop() {
 	defer close(e.events)
 
 	var (
-		active   int64 // entry between start-file and end-file
-		loaded   bool
-		started  bool
-		info     StreamInfo
-		lastTick time.Time
+		active    int64 // entry between start-file and end-file
+		loaded    bool
+		started   bool
+		info      StreamInfo
+		lastTick  time.Time
+		lastLevel time.Time
 	)
 
 	for !e.closing() {
-		ev := e.mpv.WaitEvent(tickInterval.Seconds())
+		// Wake often enough for the meter while audio is playing, and only
+		// for the slower tick otherwise.
+		wait := tickInterval
+		if started {
+			wait = levelInterval
+		}
+		ev := e.mpv.WaitEvent(wait.Seconds())
 
 		switch ev.ID {
 		case libmpv.EventShutdown:
@@ -296,6 +315,17 @@ func (e *MPVEngine) loop() {
 			}
 		}
 
+		// (Not a full interval: the wait above often returns a hair early,
+		// which would otherwise skip every other reading.)
+		if started && time.Since(lastLevel) >= levelInterval*3/4 {
+			lastLevel = time.Now()
+			if levels, ok := e.levels(); ok {
+				if !e.emit(Event{Kind: EvLevels, Entry: active, Levels: levels}) {
+					return
+				}
+			}
+		}
+
 		if started && time.Since(lastTick) >= tickInterval {
 			lastTick = time.Now()
 			if info.Codec == "" || info.SampleRate == 0 || info.Channels == 0 {
@@ -312,6 +342,42 @@ func (e *MPVEngine) loop() {
 			}
 		}
 	}
+}
+
+// levels reads the most recent frame's peak levels from the meter filter.
+func (e *MPVEngine) levels() (Levels, bool) {
+	node, err := e.mpv.GetNode(levelProperty)
+	if err != nil {
+		return Levels{}, false
+	}
+	meta, _ := node.(map[string]any)
+	left, okL := peakLevel(meta, 1)
+	right, okR := peakLevel(meta, 2)
+	switch {
+	case okL && okR:
+		return Levels{Left: left, Right: right}, true
+	case okL: // mono
+		return Levels{Left: left, Right: left}, true
+	}
+	return Levels{}, false
+}
+
+// peakLevel picks one channel's peak (dBFS) out of astats' frame metadata,
+// where it is a string such as "-12.3" or "-inf".
+func peakLevel(meta map[string]any, channel int) (float64, bool) {
+	text, ok := meta["lavfi.astats."+strconv.Itoa(channel)+".Peak_level"].(string)
+	if !ok {
+		return 0, false
+	}
+	db, err := strconv.ParseFloat(text, 64)
+	if err != nil {
+		return 0, false
+	}
+	// -inf and NaN can't go into JSON; neither is louder than Silence.
+	if !(db > Silence) {
+		db = Silence
+	}
+	return min(db, 0), true
 }
 
 func (e *MPVEngine) streamInfo() StreamInfo {

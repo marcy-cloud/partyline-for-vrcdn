@@ -25,6 +25,9 @@ single exe with nothing else to install.
   skips whatever queued up while connecting, plays 10% fast when the queue
   later stays above a threshold, and drops it outright if it gets very large.
 - **Output device and volume**, remembered between runs.
+- **Stereo level meter.** Shows the level of the incoming audio per channel,
+  measured before the volume control, so you can see a stream has signal
+  even with the player turned down.
 - **UDP first.** RTSP streams are tried over UDP, which has the lowest
   latency, and fall back to TCP if no audio arrives within 4 seconds (many
   routers drop the UDP). Once that has happened, later streams go straight

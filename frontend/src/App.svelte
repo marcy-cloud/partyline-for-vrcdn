@@ -7,8 +7,10 @@
     connect,
     errorText,
     idleState,
+    silentLevels,
     type Api,
     type AudioDevice,
+    type Levels,
     type PlayerState,
     type Settings,
     type Stream,
@@ -30,6 +32,7 @@
   let player = $state.raw<PlayerState>(idleState)
   let devices = $state.raw<AudioDevice[]>([])
   let history = $state.raw<number[]>([])
+  let levels = $state.raw<Levels>(silentLevels)
   let engine = $state('')
   let engineError = $state('')
   let engineHelp = $state('')
@@ -57,7 +60,20 @@
       history = []
     }
     if (next.streamId) lastId = next.streamId
+    if (next.status !== 'playing') levels = silentLevels
     player = next
+  }
+
+  // How far the meter may fall per reading (dB): peaks jump up at once and
+  // sink back, like a hardware meter, so short ones stay visible.
+  const METER_FALL = 2.5
+
+  function applyLevels(next: Levels) {
+    if (player.status !== 'playing') return
+    levels = {
+      left: Math.max(next.left, levels.left - METER_FALL),
+      right: Math.max(next.right, levels.right - METER_FALL),
+    }
   }
 
   onMount(async () => {
@@ -65,6 +81,7 @@
       api = await connect()
       api.onState(applyState)
       api.onDevices((d) => (devices = d))
+      api.onLevels(applyLevels)
       const boot = await api.bootstrap()
       streams = boot.streams
       settings = boot.settings
@@ -157,6 +174,7 @@
       {settings}
       {devices}
       {history}
+      {levels}
       {engine}
       {engineError}
       {engineHelp}

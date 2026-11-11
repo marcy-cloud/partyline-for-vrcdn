@@ -24,7 +24,22 @@ const (
 	EvTick
 	// EvDevices: the set of audio devices changed.
 	EvDevices
+	// EvLevels: a reading of the incoming signal level, several times a
+	// second while an entry is playing.
+	EvLevels
 )
+
+// Silence is the level reported when there is no signal, in dBFS.
+const Silence = -100.0
+
+// Levels is the peak level of the incoming audio per channel, in dBFS
+// (0 is full scale, Silence is nothing). It is measured before the volume
+// control, so it shows what the stream sends, not how loud it is played.
+// A mono stream reports the same value for both.
+type Levels struct {
+	Left  float64 `json:"left"`
+	Right float64 `json:"right"`
+}
 
 // EndReason says why playback of an entry ended.
 type EndReason int
@@ -58,6 +73,9 @@ type Event struct {
 	PosSec  float64
 	HavePos bool
 	Info    StreamInfo
+
+	// EvLevels
+	Levels Levels
 }
 
 // StreamInfo describes the audio being played.

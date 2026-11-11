@@ -17,6 +17,7 @@ const appTitle = "VRCDN Low Latency Player"
 const (
 	eventState   = "state"   // player.State, on every change
 	eventDevices = "devices" // []player.AudioDevice, when the set changes
+	eventLevels  = "levels"  // player.Levels, about 20 times a second while playing
 )
 
 // App is the API the frontend calls, registered with Wails as a service. It
@@ -72,7 +73,8 @@ func (a *App) ServiceStartup(context.Context, application.ServiceOptions) error 
 	_ = engine.SetAudioDevice(settings.AudioDevice)
 
 	a.ctl = player.NewController(engine, controllerOptions(settings), player.DefaultTuning(), player.Hooks{
-		State: func(s player.State) { emit(eventState, s) },
+		State:  func(s player.State) { emit(eventState, s) },
+		Levels: func(l player.Levels) { emit(eventLevels, l) },
 		Devices: func() {
 			if devices, err := engine.AudioDevices(); err == nil {
 				emit(eventDevices, devices)

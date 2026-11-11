@@ -16,6 +16,7 @@ func init() {
 	// Registered so the binding generator gives the UI typed events.
 	application.RegisterEvent[player.State](eventState)
 	application.RegisterEvent[[]player.AudioDevice](eventDevices)
+	application.RegisterEvent[player.Levels](eventLevels)
 }
 
 const singleInstanceID = "vrcdn-lowlatency-player-7c0d1f0e"

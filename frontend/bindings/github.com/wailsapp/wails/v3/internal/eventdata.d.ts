@@ -13,6 +13,7 @@ declare module "@wailsio/runtime" {
     namespace Events {
         interface CustomEvents {
             "devices": player$0.AudioDevice[] | null;
+            "levels": player$0.Levels;
             "state": player$0.State;
         }
     }

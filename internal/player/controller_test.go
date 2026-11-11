@@ -74,6 +74,9 @@ func (f *fakeEngine) started() { f.events <- Event{Kind: EvStarted, Entry: f.ent
 func (f *fakeEngine) failed(detail string) {
 	f.events <- Event{Kind: EvEnded, Entry: f.entry(), Reason: EndError, Detail: detail}
 }
+func (f *fakeEngine) levels(l, r float64) {
+	f.events <- Event{Kind: EvLevels, Entry: f.entry(), Levels: Levels{Left: l, Right: r}}
+}
 func (f *fakeEngine) tick(bufferSec, pos float64) {
 	f.events <- Event{Kind: EvTick, Entry: f.entry(), BufferSec: bufferSec, PosSec: pos, HavePos: true}
 }
@@ -585,5 +588,38 @@ func TestStopCancelsFallback(t *testing.T) {
 	time.Sleep(3 * tuning.FallbackAfter)
 	if f.loadCount() != 1 || c.State().Status != Idle {
 		t.Errorf("loads = %d, status = %s after stop", f.loadCount(), c.State().Status)
+	}
+}
+
+// Level readings go straight to their hook while playing, and nowhere near
+// the state snapshot.
+func TestLevelsAreForwardedWhilePlaying(t *testing.T) {
+	got := make(chan Levels, 8)
+	f := newFakeEngine()
+	c := NewController(f, defaultOpts, testTuning(), Hooks{Levels: func(l Levels) { got <- l }})
+	t.Cleanup(c.Close)
+
+	c.Play(djA)
+	f.levels(-3, -4) // still connecting: not shown
+	f.started()
+	waitStatus(t, c, Playing)
+	f.levels(-12, -18)
+
+	select {
+	case l := <-got:
+		if l != (Levels{Left: -12, Right: -18}) {
+			t.Errorf("levels = %+v, want the reading taken while playing", l)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("no levels arrived")
+	}
+
+	c.Stop()
+	f.levels(-1, -1)
+	c.Stop() // a second round trip through the loop, so the event has been handled
+	select {
+	case l := <-got:
+		t.Errorf("levels %+v arrived after stop", l)
+	default:
 	}
 }

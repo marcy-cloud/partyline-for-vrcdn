@@ -10,6 +10,17 @@ export interface AudioDevice {
 }
 
 /**
+ * Levels is the peak level of the incoming audio per channel, in dBFS
+ * (0 is full scale, Silence is nothing). It is measured before the volume
+ * control, so it shows what the stream sends, not how loud it is played.
+ * A mono stream reports the same value for both.
+ */
+export interface Levels {
+    "left": number;
+    "right": number;
+}
+
+/**
  * State is a snapshot of the player for the UI.
  */
 export interface State {

@@ -63,6 +63,7 @@ func main() {
 	_ = engine.SetAudioDevice(*device)
 	_ = engine.SetVolume(*volume)
 
+	levelCount := 0
 	opts := player.Options{AutoReconnect: true, AutoCatchUp: true, CatchUpAboveMs: 250}
 	ctl := player.NewController(engine, opts, player.DefaultTuning(), player.Hooks{
 		State: func(s player.State) {
@@ -83,6 +84,12 @@ func main() {
 				line += fmt.Sprintf("  %s (attempt %d)", s.Message, s.Attempt)
 			}
 			fmt.Println(line)
+		},
+		Levels: func(l player.Levels) {
+			// About 20 readings a second is too much to print; show one a second.
+			if levelCount++; levelCount%20 == 0 {
+				fmt.Printf("level        L %6.1f dB  R %6.1f dB\n", l.Left, l.Right)
+			}
 		},
 	})
 	defer ctl.Close()

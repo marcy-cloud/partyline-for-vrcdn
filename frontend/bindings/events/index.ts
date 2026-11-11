@@ -14,6 +14,11 @@ import "../github.com/wailsapp/wails/v3/internal/eventcreate.js";
 export const Devices = "devices";
 
 /**
+ * Name of the custom event "levels".
+ */
+export const Levels = "levels";
+
+/**
  * Name of the custom event "state".
  */
 export const State = "state";

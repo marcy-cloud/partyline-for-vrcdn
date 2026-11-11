@@ -55,6 +55,15 @@ export interface PlayerState {
   via: string
 }
 
+/** Peak level of the incoming audio per channel, in dBFS (0 = full scale). */
+export interface Levels {
+  left: number
+  right: number
+}
+
+/** What the meter shows when there is no signal, and the bottom of its scale. */
+export const silentLevels: Levels = { left: -100, right: -100 }
+
 export interface AudioDevice {
   name: string
   description: string
@@ -99,6 +108,8 @@ export interface Api {
   updateSettings(settings: Settings): Promise<Settings>
   onState(cb: (state: PlayerState) => void): void
   onDevices(cb: (devices: AudioDevice[]) => void): void
+  /** About 20 readings a second while a stream is playing. */
+  onLevels(cb: (levels: Levels) => void): void
 }
 
 // The generated bindings use their own (enum-based) types; our interfaces
@@ -118,6 +129,7 @@ const wails: Api = {
   updateSettings: (s) => Backend.UpdateSettings(s as never) as unknown as Promise<Settings>,
   onState: (cb) => void Events.On('state', (e) => cb(e.data as unknown as PlayerState)),
   onDevices: (cb) => void Events.On('devices', (e) => cb((e.data ?? []) as unknown as AudioDevice[])),
+  onLevels: (cb) => void Events.On('levels', (e) => cb(e.data as unknown as Levels)),
 }
 
 /** True inside the Wails window, false in a plain browser (npm run dev). */

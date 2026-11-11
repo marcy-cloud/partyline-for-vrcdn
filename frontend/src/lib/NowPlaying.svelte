@@ -2,13 +2,14 @@
   import Icon from './Icon.svelte'
   import Sparkline from './Sparkline.svelte'
   import ThemeToggle from './ThemeToggle.svelte'
-  import type { AudioDevice, PlayerState, Settings, Status } from './api'
+  import type { AudioDevice, Levels, PlayerState, Settings, Status } from './api'
 
   interface Props {
     player: PlayerState
     settings: Settings
     devices: AudioDevice[]
     history: number[]
+    levels: Levels
     engine: string
     engineError: string
     engineHelp: string
@@ -27,6 +28,7 @@
     settings,
     devices,
     history,
+    levels,
     engine,
     engineError,
     engineHelp,
@@ -73,6 +75,10 @@
     if (player.via) parts.push(player.via.toUpperCase())
     return parts.join(' · ')
   })
+
+  // The meter covers the top 60 dB: -60 dBFS and below is empty, 0 is full.
+  const METER_RANGE = 60
+  const meterFill = (db: number) => `${Math.min(Math.max((db + METER_RANGE) / METER_RANGE, 0), 1) * 100}%`
 
   let overThreshold = $derived(player.bufferMs > settings.catchUpAboveMs)
   let busy = $derived(player.status !== 'idle' && player.status !== 'failed')
@@ -204,6 +210,19 @@
           />
           <output class="num">{Math.round(settings.volume)}</output>
         </label>
+
+        <div class="control" title="Level of the incoming audio, before the volume control">
+          <span>Level</span>
+          <div
+            class="level"
+            role="img"
+            aria-label="Incoming level: left {Math.round(levels.left)} dB, right {Math.round(levels.right)} dB"
+          >
+            <div class="bar" style="--fill: {meterFill(levels.left)}"></div>
+            <div class="bar" style="--fill: {meterFill(levels.right)}"></div>
+          </div>
+          <span class="lr pixel" aria-hidden="true">L<br />R</span>
+        </div>
 
         <label class="control">
           <span>Output</span>
@@ -508,7 +527,7 @@
   /* Controls */
   .controls {
     display: grid;
-    gap: 10px;
+    gap: var(--gt-space-2);
     padding-top: var(--gt-space-4);
     border-top: var(--gt-border-width) dotted var(--gt-border);
   }
@@ -563,6 +582,31 @@
     border: var(--gt-border-width) solid var(--gt-lavender);
     border-radius: 50%;
     background: var(--gt-white);
+  }
+
+  /* Incoming level, left over right. The colours sit at fixed places on the
+     scale (mint, then butter for the top 12 dB, pink for the top 3) and
+     --fill uncovers them from the left. */
+  .level {
+    display: grid;
+    gap: 3px;
+  }
+
+  .bar {
+    height: 6px;
+    border-radius: var(--gt-radius-pill);
+    background:
+      linear-gradient(to right, transparent var(--fill), var(--gt-surface-raised) var(--fill)),
+      linear-gradient(to right, var(--gt-mint) 80%, var(--gt-butter) 80% 95%, var(--gt-pink) 95%);
+  }
+
+  .control > .lr {
+    color: var(--gt-text-faint);
+    font-family: var(--gt-font-pixel);
+    font-size: var(--gt-text-small);
+    font-weight: 400;
+    line-height: 9px;
+    text-align: right;
   }
 
   .toggles {

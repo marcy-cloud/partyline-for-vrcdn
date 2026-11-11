@@ -66,9 +66,11 @@ const snapshot = () => js(`JSON.stringify({
   title: document.querySelector('.now h1')?.innerText ?? null,
   message: document.querySelector('.message')?.innerText ?? null,
   buffer: document.querySelector('.buffer .value')?.innerText?.replace(/\\s+/g, ' ') ?? null,
+  level: document.querySelector('.level')?.getAttribute('aria-label') ?? null,
   format: document.querySelector('.format')?.innerText ?? null,
   rows: [...document.querySelectorAll('aside li')].map((li) => li.innerText.replace(/\\s+/g, ' ').trim()),
   flair: !!document.querySelector('.flair'),
+  overflow: (() => { const b = document.querySelector('.window .body'); return b.scrollHeight - b.clientHeight })(),
   devices: document.querySelectorAll('.control select option').length,
   engine: document.querySelector('footer')?.innerText ?? null,
   callout: document.querySelector('.callout')?.innerText ?? null,
@@ -89,10 +91,12 @@ try {
     for (let i = 0; i < 16; i++) {
       await sleep(500)
       const s = await snapshot()
-      if (i % 4 === 3 || s.badge?.trim() === 'Live') console.log(`t+${(i + 1) / 2}s:`, s.badge?.trim(), '|', s.buffer, '|', s.format, '|', s.message)
+      if (i % 4 === 3 || s.badge?.trim() === 'Live') console.log(`t+${(i + 1) / 2}s:`, s.badge?.trim(), '|', s.buffer, '|', s.format, '|', s.level, '|', s.message)
       if (s.badge?.trim() === 'Live' && i >= 5) break
     }
-    console.log('playing:', JSON.stringify(await snapshot()))
+    const playing = await snapshot()
+    console.log('playing:', JSON.stringify(playing))
+    if (playing.overflow > 0) console.log(`WARNING: the panel overflows by ${playing.overflow}px at the default window size`)
     await shot('smoke-playing')
 
     // Resync, then stop.

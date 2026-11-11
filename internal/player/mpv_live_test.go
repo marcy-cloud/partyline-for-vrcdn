@@ -121,6 +121,22 @@ func TestMPVEngineLiveStream(t *testing.T) {
 	nextEvent(t, e, EvStarted, entry)
 	t.Logf("audio started %d ms after Load", time.Since(began).Milliseconds())
 
+	// The fixture's tone peaks at 8000/32768 of full scale on both channels.
+	wantDB := 20 * math.Log10(8000.0/32768.0)
+	levels := nextEvent(t, e, EvLevels, entry).Levels
+	// Readings must come often enough to animate a meter.
+	began = time.Now()
+	for i := 0; i < 15; i++ {
+		levels = nextEvent(t, e, EvLevels, entry).Levels
+	}
+	if took := time.Since(began); took > 1500*time.Millisecond {
+		t.Errorf("15 level readings took %v; want about 20 a second", took)
+	}
+	t.Logf("levels: L %.1f dB, R %.1f dB (tone is %.1f dB)", levels.Left, levels.Right, wantDB)
+	if math.Abs(levels.Left-wantDB) > 1 || math.Abs(levels.Right-wantDB) > 1 {
+		t.Errorf("levels = %+v, want about %.1f dB on both channels", levels, wantDB)
+	}
+
 	// Position must advance and the format must be reported.
 	first := nextEvent(t, e, EvTick, entry)
 	var last Event

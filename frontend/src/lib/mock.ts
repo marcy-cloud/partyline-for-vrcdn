@@ -6,6 +6,7 @@ import {
   type Api,
   type AudioDevice,
   type Bootstrap,
+  type Levels,
   type PlayerState,
   type Settings,
   type Stream,
@@ -38,6 +39,7 @@ export function createMock(): Api {
     { name: 'wasapi/{2}', description: 'CABLE Input (VB-Audio Virtual Cable)' },
   ]
 
+  let levelListener: (levels: Levels) => void = () => {}
   let state: PlayerState = { ...idleState }
   let listener: (s: PlayerState) => void = () => {}
   let timers: number[] = []
@@ -84,6 +86,13 @@ export function createMock(): Api {
           info: { codec: 'aac', sampleRate: 48000, channels: 2 },
           via: stream.transport.startsWith('rtsp') || stream.source.startsWith('rtsp') ? 'udp' : '',
         })
+        // A wandering signal around -14 dB, slightly different per channel.
+        timers.push(
+          window.setInterval(() => {
+            const base = -14 + 8 * Math.sin(Date.now() / 300)
+            levelListener({ left: base - 6 * Math.random(), right: base - 2 - 6 * Math.random() })
+          }, 50),
+        )
         let t = 0
         timers.push(
           window.setInterval(() => {
@@ -152,6 +161,9 @@ export function createMock(): Api {
       listener = cb
     },
     onDevices() {},
+    onLevels(cb) {
+      levelListener = cb
+    },
   }
 
   if (streams.length > 0 && demo !== 'idle' && demo !== 'noengine') {

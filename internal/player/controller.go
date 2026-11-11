@@ -140,6 +140,9 @@ type Hooks struct {
 	State func(State)
 	// Devices is called when the set of audio devices changes.
 	Devices func()
+	// Levels is called with each signal-level reading while playing. It is
+	// separate from State because it arrives many times a second.
+	Levels func(Levels)
 }
 
 // NewController starts a controller driving engine.
@@ -403,6 +406,11 @@ func (c *Controller) handle(ev Event) {
 
 	case EvTick:
 		c.tick(ev)
+
+	case EvLevels:
+		if c.state.Status == Playing && c.hooks.Levels != nil {
+			c.hooks.Levels(ev.Levels)
+		}
 	}
 }
 
