@@ -120,7 +120,7 @@ export function createMock(): Api {
           ? 'Put libmpv-2.dll next to this program (it is inside the mpv-dev-x86_64 download from the mpv Windows builds), then restart.'
           : '',
         notice: '',
-        configPath: 'C:\\Users\\you\\AppData\\Roaming\\vrcdn-lowlatency-player\\config.json',
+        configPath: 'C:\\Users\\you\\AppData\\Roaming\\partyline\\config.json',
       }
     },
     async saveStream(s) {

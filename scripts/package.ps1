@@ -3,7 +3,7 @@
 #
 #   powershell -ExecutionPolicy Bypass -File scripts\package.ps1
 #
-# Output: dist\vrcdn-lowlatency-player-<version>-windows-amd64.zip
+# Output: dist\partyline-<version>-windows-amd64.zip
 # Needs Go, Node and the Wails v3 CLI (see README). libmpv is downloaded first
 # if tools/fetch-libmpv has not been run yet.
 
@@ -26,12 +26,12 @@ $libmpv = Get-Content (Join-Path $bundled "manifest.json") -Raw | ConvertFrom-Js
 Invoke-Checked "wails3 build" { wails3 build EXTRA_TAGS=bundled_libmpv }
 
 $version = (Get-Content (Join-Path $root "build\windows\info.json") -Raw | ConvertFrom-Json).fixed.product_version
-$name = "vrcdn-lowlatency-player-$version-windows-amd64"
+$name = "partyline-$version-windows-amd64"
 $stage = Join-Path $root "dist\$name"
 if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
 New-Item -ItemType Directory -Path $stage | Out-Null
 
-Copy-Item (Join-Path $root "bin\vrcdn-lowlatency-player.exe") $stage
+Copy-Item (Join-Path $root "bin\partyline.exe") $stage
 Copy-Item (Join-Path $root "LICENSE") (Join-Path $stage "LICENSE.txt")
 
 # The notices, plus exactly which libmpv build is inside this exe.
@@ -89,6 +89,6 @@ try {
     $archive.Dispose()
 }
 
-$exe = Get-Item (Join-Path $stage "vrcdn-lowlatency-player.exe")
+$exe = Get-Item (Join-Path $stage "partyline.exe")
 Write-Host ("Done: {0} ({1:N0} MB; the exe alone is {2:N0} MB, libmpv {3})" -f `
     $zip, ((Get-Item $zip).Length / 1MB), ($exe.Length / 1MB), $libmpv.release)

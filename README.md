@@ -1,15 +1,16 @@
-# VRCDN Low Latency Player
+# PartyLine for VRCDN
 
 A small desktop app that plays the **audio** of a [VRCDN](https://vrcdn.live/)
 stream with as little delay as possible. It is meant for VJs and lighting
 operators who need a performer's audio in their own software: save each
 performer's stream once, then switch between them with one click.
 
-It is a from-scratch rebuild of the Electron
-[VRCDN-LowLatency-Player](https://github.com/jazzy348/VRCDN-LowLatency-Player),
-written in Go with [Wails v3](https://v3.wails.io) and an embedded
-[libmpv](https://mpv.io) instead of a spawned `mpv.exe`. On Windows it is a
-single exe with nothing else to install.
+PartyLine is based on
+[VRCDN-LowLatency-Player](https://github.com/jazzy348/VRCDN-LowLatency-Player/tree/main)
+by jazzy348 and was rebuilt from scratch by Marcy.cloud. It is written in Go
+with [Wails v3](https://v3.wails.io) and an embedded [libmpv](https://mpv.io)
+instead of a spawned `mpv.exe`. On Windows it is a single exe with nothing
+else to install.
 
 ## What it does
 
@@ -38,9 +39,9 @@ single exe with nothing else to install.
 
 ### Windows
 
-Unzip a release and run `vrcdn-lowlatency-player.exe`. libmpv is inside the
+Unzip a release and run `partyline.exe`. libmpv is inside the
 exe; the first run unpacks it to
-`%LocalAppData%\vrcdn-lowlatency-player\libmpv`. WebView2 is required and
+`%LocalAppData%\partyline\libmpv`. WebView2 is required and
 ships with Windows 10/11.
 
 To use a different libmpv build, put its `libmpv-2.dll` next to the exe; it
@@ -72,14 +73,14 @@ powershell -ExecutionPolicy Bypass -File scripts\package.ps1
 ```
 
 This downloads libmpv if needed, builds the exe with libmpv compiled in, and
-writes `dist\vrcdn-lowlatency-player-<version>-windows-amd64.zip` holding the
+writes `dist\partyline-<version>-windows-amd64.zip` holding the
 exe and the licence files it must be distributed with.
 
 The steps by hand:
 
 ```
 go run -C tools/fetch-libmpv .              # libmpv-2.dll -> bin and internal/libmpv/bundled
-wails3 build EXTRA_TAGS=bundled_libmpv      # bin/vrcdn-lowlatency-player.exe, about 59 MB
+wails3 build EXTRA_TAGS=bundled_libmpv      # bin/partyline.exe, about 59 MB
 ```
 
 `tools/fetch-libmpv` takes the latest
@@ -184,8 +185,8 @@ What the player cannot remove is the delay before the audio reaches it
 
 ### Settings file
 
-`%AppData%\vrcdn-lowlatency-player\config.json` on Windows,
-`~/.config/vrcdn-lowlatency-player/config.json` on Linux.
+`%AppData%\partyline\config.json` on Windows,
+`~/.config/partyline/config.json` on Linux.
 
 ## Licence
 

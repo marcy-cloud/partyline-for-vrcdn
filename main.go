@@ -6,7 +6,7 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
-	"vrcdn-lowlatency-player/internal/player"
+	"partyline/internal/player"
 )
 
 //go:embed all:frontend/dist
@@ -19,7 +19,7 @@ func init() {
 	application.RegisterEvent[player.Levels](eventLevels)
 }
 
-const singleInstanceID = "vrcdn-lowlatency-player-7c0d1f0e"
+const singleInstanceID = "partyline-7c0d1f0e"
 
 func main() {
 	var window *application.WebviewWindow

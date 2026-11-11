@@ -1,7 +1,12 @@
 # Third-party software
 
-VRCDN Low Latency Player is licensed under the GNU General Public License,
+PartyLine for VRCDN is licensed under the GNU General Public License,
 version 3 or (at your option) any later version; see `LICENSE`.
+
+PartyLine is based on
+[VRCDN-LowLatency-Player](https://github.com/jazzy348/VRCDN-LowLatency-Player/tree/main)
+by jazzy348 and was rebuilt from scratch by Marcy.cloud. It shares no code
+with the original.
 
 Release builds for Windows contain the software below. The licence texts of
 the Go modules, Svelte and the fonts are in the `licenses` folder of a release.
@@ -9,7 +14,7 @@ the Go modules, Svelte and the fonts are in the `licenses` folder of a release.
 ## libmpv (inside the Windows exe)
 
 The Windows exe contains an unmodified `libmpv-2.dll`, which it unpacks to
-`%LocalAppData%\vrcdn-lowlatency-player\libmpv` on first run. The DLL is
+`%LocalAppData%\partyline\libmpv` on first run. The DLL is
 taken from the
 [mpv-winbuild-cmake](https://github.com/shinchiro/mpv-winbuild-cmake/releases)
 builds (the `mpv-dev-x86_64` archive). The exact build in a given release is

@@ -25,7 +25,7 @@ type Manifest struct {
 }
 
 // cacheDirName is this program's folder under the user cache directory.
-const cacheDirName = "vrcdn-lowlatency-player"
+const cacheDirName = "partyline"
 
 // Bundled reports the libmpv build compiled into this program, if there is
 // one (builds with -tags bundled_libmpv).

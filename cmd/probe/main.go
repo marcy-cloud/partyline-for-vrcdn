@@ -15,9 +15,9 @@ import (
 	"os/signal"
 	"time"
 
-	"vrcdn-lowlatency-player/internal/libmpv"
-	"vrcdn-lowlatency-player/internal/player"
-	"vrcdn-lowlatency-player/internal/vrcdn"
+	"partyline/internal/libmpv"
+	"partyline/internal/player"
+	"partyline/internal/vrcdn"
 )
 
 func main() {
@@ -27,7 +27,7 @@ func main() {
 	duration := flag.Duration("for", 0, "stop after this long, e.g. 30s (default: until Ctrl+C)")
 	flag.Parse()
 
-	engine, err := player.NewMPVEngine("VRCDN Low Latency Player (probe)")
+	engine, err := player.NewMPVEngine("PartyLine for VRCDN (probe)")
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		fmt.Fprintln(os.Stderr, player.LibraryHelp())

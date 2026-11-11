@@ -6,12 +6,12 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
-	"vrcdn-lowlatency-player/internal/player"
-	"vrcdn-lowlatency-player/internal/store"
-	"vrcdn-lowlatency-player/internal/vrcdn"
+	"partyline/internal/player"
+	"partyline/internal/store"
+	"partyline/internal/vrcdn"
 )
 
-const appTitle = "VRCDN Low Latency Player"
+const appTitle = "PartyLine for VRCDN"
 
 // Events sent to the UI.
 const (

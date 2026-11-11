@@ -3,7 +3,7 @@
 #
 # The lines below are called `modelines`. See `:help modeline`
 
-name: "vrcdn-lowlatency-player.exe"
+name: "partyline.exe"
 arch: ${GOARCH}
 platform: "linux"
 version: "0.1.0"
@@ -11,18 +11,18 @@ section: "default"
 priority: "extra"
 maintainer: ${GIT_COMMITTER_NAME} <${GIT_COMMITTER_EMAIL}>
 description: "Low-latency audio player for VRCDN streams"
-vendor: "VRCDN Low Latency Player contributors"
+vendor: "PartyLine for VRCDN contributors"
 homepage: "https://wails.io"
 license: "MIT"
 release: "1"
 
 contents:
-  - src: "./bin/vrcdn-lowlatency-player.exe"
-    dst: "/usr/local/bin/vrcdn-lowlatency-player.exe"
+  - src: "./bin/partyline.exe"
+    dst: "/usr/local/bin/partyline.exe"
   - src: "./build/appicon.png"
-    dst: "/usr/share/icons/hicolor/128x128/apps/vrcdn-lowlatency-player.exe.png"
-  - src: "./build/linux/vrcdn-lowlatency-player.exe.desktop"
-    dst: "/usr/share/applications/vrcdn-lowlatency-player.exe.desktop"
+    dst: "/usr/share/icons/hicolor/128x128/apps/partyline.exe.png"
+  - src: "./build/linux/partyline.exe.desktop"
+    dst: "/usr/share/applications/partyline.exe.desktop"
 
 # Default dependencies for the GTK4 + WebKitGTK 6.0 stack (Ubuntu 24.04+ / Debian 13+)
 depends:

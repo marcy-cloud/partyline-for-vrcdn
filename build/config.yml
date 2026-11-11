@@ -5,9 +5,9 @@ version: '3'
 
 # This information is used to generate the build assets.
 info:
-  companyName: "VRCDN Low Latency Player contributors" # The name of the company
-  productName: "VRCDN Low Latency Player" # The name of the application
-  productIdentifier: "app.vrcdn-lowlatency-player" # The unique product identifier
+  companyName: "Marcy.cloud" # The name of the company
+  productName: "PartyLine for VRCDN" # The name of the application
+  productIdentifier: "app.partyline" # The unique product identifier
   description: "Low-latency audio player for VRCDN streams" # The application description
   copyright: "GPL-3.0-or-later" # Copyright text
   comments: "Low-latency audio player for VRCDN streams" # Comments

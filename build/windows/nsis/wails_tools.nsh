@@ -5,13 +5,13 @@
 !include "FileFunc.nsh"
 
 !ifndef INFO_PROJECTNAME
-    !define INFO_PROJECTNAME "vrcdn-lowlatency-player"
+    !define INFO_PROJECTNAME "partyline"
 !endif
 !ifndef INFO_COMPANYNAME
-    !define INFO_COMPANYNAME "VRCDN Low Latency Player contributors"
+    !define INFO_COMPANYNAME "PartyLine for VRCDN contributors"
 !endif
 !ifndef INFO_PRODUCTNAME
-    !define INFO_PRODUCTNAME "VRCDN Low Latency Player"
+    !define INFO_PRODUCTNAME "PartyLine for VRCDN"
 !endif
 !ifndef INFO_PRODUCTVERSION
     !define INFO_PRODUCTVERSION "0.1.0"

@@ -7,10 +7,10 @@
 		"0409": {
 			"FileVersion": "0.1.0",
 			"ProductVersion": "0.1.0",
-			"CompanyName": "VRCDN Low Latency Player contributors",
+			"CompanyName": "Marcy.cloud",
 			"FileDescription": "Low-latency audio player for VRCDN streams",
 			"LegalCopyright": "GPL-3.0-or-later",
-			"ProductName": "VRCDN Low Latency Player",
+			"ProductName": "PartyLine for VRCDN",
 			"Comments": "Low-latency audio player for VRCDN streams"
 		}
 	}

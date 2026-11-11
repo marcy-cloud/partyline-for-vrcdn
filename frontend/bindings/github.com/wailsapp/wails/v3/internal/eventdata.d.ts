@@ -7,7 +7,7 @@ import type { Events } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import type * as player$0 from "../../../../../vrcdn-lowlatency-player/internal/player/models.js";
+import type * as player$0 from "../../../../../partyline/internal/player/models.js";
 
 declare module "@wailsio/runtime" {
     namespace Events {

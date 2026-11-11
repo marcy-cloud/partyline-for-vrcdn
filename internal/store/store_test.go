@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"vrcdn-lowlatency-player/internal/vrcdn"
+	"partyline/internal/vrcdn"
 )
 
 func open(t *testing.T) (*Store, string) {
@@ -197,5 +197,31 @@ func TestVersion1TCPBecomesUDPFirst(t *testing.T) {
 	}
 	if tr := again.Streams()[0].Transport; tr != vrcdn.RTSPTCP {
 		t.Errorf("TCP-only choice reloaded as %q", tr)
+	}
+}
+
+func TestAdoptLegacyConfig(t *testing.T) {
+	dir := t.TempDir()
+	legacy := filepath.Join(dir, "old", "config.json")
+	path := filepath.Join(dir, "new", "config.json")
+
+	adoptLegacyConfig(path, legacy) // nothing to adopt
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatalf("a config appeared from nowhere (%v)", err)
+	}
+
+	os.MkdirAll(filepath.Dir(legacy), 0o755)
+	os.WriteFile(legacy, []byte(`{"version":2,"streams":[{"id":"a","label":"A","source":"dja","transport":"rtsp"}]}`), 0o644)
+	adoptLegacyConfig(path, legacy)
+	s, err := Open(path)
+	if err != nil || len(s.Streams()) != 1 {
+		t.Fatalf("legacy streams were not carried over: %v, %v", s.Streams(), err)
+	}
+
+	// An existing config is never overwritten.
+	os.WriteFile(legacy, []byte(`{"version":2}`), 0o644)
+	adoptLegacyConfig(path, legacy)
+	if again, _ := Open(path); len(again.Streams()) != 1 {
+		t.Error("the new config was overwritten by the legacy one")
 	}
 }

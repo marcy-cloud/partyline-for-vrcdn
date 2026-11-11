@@ -8,15 +8,15 @@
         AllowPromptForPassword="false">
     </Settings>
     <Installer
-        Path="vrcdn-lowlatency-player.exe"
+        Path="partyline.exe"
         Arguments=""
-        InstallLocation="C:\Program Files\VRCDN Low Latency Player contributors\VRCDN Low Latency Player">
+        InstallLocation="C:\Program Files\PartyLine for VRCDN contributors\PartyLine for VRCDN">
     </Installer>
     <PackageInformation
-        PackageName="VRCDN Low Latency Player"
-        PackageDisplayName="VRCDN Low Latency Player"
-        PublisherName="CN=VRCDN Low Latency Player contributors"
-        PublisherDisplayName="VRCDN Low Latency Player contributors"
+        PackageName="PartyLine for VRCDN"
+        PackageDisplayName="PartyLine for VRCDN"
+        PublisherName="CN=PartyLine for VRCDN contributors"
+        PublisherDisplayName="PartyLine for VRCDN contributors"
         Version="0.1.0.0"
         PackageDescription="Low-latency audio player for VRCDN streams">
         <Capabilities>
@@ -25,10 +25,10 @@
         </Capabilities>
         <Applications>
             <Application
-                Id="app.vrcdn-lowlatency-player"
+                Id="app.partyline"
                 Description="Low-latency audio player for VRCDN streams"
-                DisplayName="VRCDN Low Latency Player"
-                ExecutableName="vrcdn-lowlatency-player.exe"
+                DisplayName="PartyLine for VRCDN"
+                ExecutableName="partyline.exe"
                 EntryPoint="Windows.FullTrustApplication">
                 
             </Application>
@@ -41,13 +41,13 @@
         </Dependencies>
         <Properties>
             <Framework>false</Framework>
-            <DisplayName>VRCDN Low Latency Player</DisplayName>
-            <PublisherDisplayName>VRCDN Low Latency Player contributors</PublisherDisplayName>
+            <DisplayName>PartyLine for VRCDN</DisplayName>
+            <PublisherDisplayName>PartyLine for VRCDN contributors</PublisherDisplayName>
             <Description>Low-latency audio player for VRCDN streams</Description>
             <Logo>Assets\AppIcon.png</Logo>
         </Properties>
     </PackageInformation>
-    <SaveLocation PackagePath="vrcdn-lowlatency-player.msix" />
+    <SaveLocation PackagePath="partyline.msix" />
     <PackageIntegrity>
         <CertificatePath></CertificatePath>
     </PackageIntegrity>

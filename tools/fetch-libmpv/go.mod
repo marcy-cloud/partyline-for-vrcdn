@@ -1,4 +1,4 @@
-module vrcdn-lowlatency-player/tools/fetch-libmpv
+module partyline/tools/fetch-libmpv
 
 go 1.27.0
 

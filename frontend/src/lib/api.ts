@@ -2,7 +2,7 @@
 // types and the Api interface from here, so the UI can also run in a plain
 // browser against the dev mock (npm run dev).
 import { Events } from '@wailsio/runtime'
-import { App as Backend } from '../../bindings/vrcdn-lowlatency-player'
+import { App as Backend } from '../../bindings/partyline'
 
 export type Transport = 'rtsp' | 'rtsp-udp' | 'rtsp-tcp' | 'flv' | 'mpegts'
 

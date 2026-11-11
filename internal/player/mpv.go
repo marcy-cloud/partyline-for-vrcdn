@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"vrcdn-lowlatency-player/internal/libmpv"
+	"partyline/internal/libmpv"
 )
 
 // tickInterval is how often the buffer and position are sampled.

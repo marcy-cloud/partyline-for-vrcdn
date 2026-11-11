@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"vrcdn-lowlatency-player/internal/libmpv"
+	"partyline/internal/libmpv"
 )
 
 // These tests drive the real libmpv against a local stand-in for a live

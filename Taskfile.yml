@@ -4,7 +4,7 @@ version: '3'
 # `wails3 package`. The per-platform details are in build/.
 
 vars:
-  APP_NAME: "vrcdn-lowlatency-player"
+  APP_NAME: "partyline"
   BIN_DIR: "bin"
   PACKAGE_MANAGER: '{{.PACKAGE_MANAGER | default "npm"}}'
   VITE_PORT: '{{.WAILS_VITE_PORT | default 9245}}'

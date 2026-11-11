@@ -13,11 +13,11 @@ import (
 	"strings"
 	"sync"
 
-	"vrcdn-lowlatency-player/internal/vrcdn"
+	"partyline/internal/vrcdn"
 )
 
 // AppDir is the folder name used under the OS config directory.
-const AppDir = "vrcdn-lowlatency-player"
+const AppDir = "partyline"
 
 // Stream is one saved connection.
 type Stream struct {
@@ -85,7 +85,28 @@ func DefaultPath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, AppDir, "config.json"), nil
+	path := filepath.Join(dir, AppDir, "config.json")
+	adoptLegacyConfig(path, filepath.Join(dir, legacyAppDir, "config.json"))
+	return path, nil
+}
+
+// legacyAppDir is the config folder used before the app was renamed.
+const legacyAppDir = "vrcdn-lowlatency-player"
+
+// adoptLegacyConfig copies the config from the old folder the first time the
+// renamed app runs, so saved streams survive the rename. The old file is
+// left where it is.
+func adoptLegacyConfig(path, legacy string) {
+	if _, err := os.Stat(path); err == nil {
+		return
+	}
+	data, err := os.ReadFile(legacy)
+	if err != nil {
+		return
+	}
+	if os.MkdirAll(filepath.Dir(path), 0o755) == nil {
+		_ = os.WriteFile(path, data, 0o644)
+	}
 }
 
 // version is the config format written by this build. 2 added UDP-first RTSP.

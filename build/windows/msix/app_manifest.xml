@@ -8,14 +8,14 @@
   IgnorableNamespaces="uap3">
   
   <Identity 
-    Name="app.vrcdn-lowlatency-player"
-    Publisher="CN=VRCDN Low Latency Player contributors"
+    Name="app.partyline"
+    Publisher="CN=PartyLine for VRCDN contributors"
     Version="0.1.0.0"
     ProcessorArchitecture="x64" />
   
   <Properties>
-    <DisplayName>VRCDN Low Latency Player</DisplayName>
-    <PublisherDisplayName>VRCDN Low Latency Player contributors</PublisherDisplayName>
+    <DisplayName>PartyLine for VRCDN</DisplayName>
+    <PublisherDisplayName>PartyLine for VRCDN contributors</PublisherDisplayName>
     <Description>Low-latency audio player for VRCDN streams</Description>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
@@ -29,9 +29,9 @@
   </Resources>
   
   <Applications>
-    <Application Id="app.vrcdn-lowlatency-player" Executable="vrcdn-lowlatency-player.exe" EntryPoint="Windows.FullTrustApplication">
+    <Application Id="app.partyline" Executable="partyline.exe" EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements
-        DisplayName="VRCDN Low Latency Player"
+        DisplayName="PartyLine for VRCDN"
         Description="Low-latency audio player for VRCDN streams"
         BackgroundColor="transparent"
         Square150x150Logo="Assets\Square150x150Logo.png"
@@ -41,7 +41,7 @@
       </uap:VisualElements>
       
       <Extensions>
-        <desktop:Extension Category="windows.fullTrustProcess" Executable="vrcdn-lowlatency-player.exe" />
+        <desktop:Extension Category="windows.fullTrustProcess" Executable="partyline.exe" />
         
         
       </Extensions>
