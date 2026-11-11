@@ -88,11 +88,14 @@ func DefaultPath() (string, error) {
 	return filepath.Join(dir, AppDir, "config.json"), nil
 }
 
+// version is the config format written by this build. 2 added UDP-first RTSP.
+const version = 2
+
 // Open loads the config at path, or starts from defaults if it doesn't exist.
 // A corrupt file is preserved next to the original as *.bad rather than
 // silently discarded.
 func Open(path string) (*Store, error) {
-	s := &Store{path: path, data: file{Version: 1, Settings: DefaultSettings()}}
+	s := &Store{path: path, data: file{Version: version, Settings: DefaultSettings()}}
 
 	raw, err := os.ReadFile(path)
 	switch {
@@ -107,13 +110,16 @@ func Open(path string) (*Store, error) {
 		_ = os.Rename(path, path+".bad")
 		return s, fmt.Errorf("config was unreadable and has been moved to %s: %w", path+".bad", err)
 	}
-	loaded.Version = 1
-	loaded.Settings.normalize()
 	for i := range loaded.Streams {
-		if !loaded.Streams[i].Transport.Valid() {
-			loaded.Streams[i].Transport = vrcdn.RTSPTCP
+		t := &loaded.Streams[i].Transport
+		// Version 1 had no UDP-first option and TCP was simply the default,
+		// so it is carried over as the new default, not as a choice.
+		if !t.Valid() || (loaded.Version < 2 && *t == vrcdn.RTSPTCP) {
+			*t = vrcdn.RTSP
 		}
 	}
+	loaded.Version = version
+	loaded.Settings.normalize()
 	s.data = loaded
 	return s, nil
 }
@@ -153,7 +159,7 @@ func (s *Store) SaveStream(in Stream) (Stream, error) {
 		in.Label = src.Display()
 	}
 	if !in.Transport.Valid() {
-		in.Transport = vrcdn.RTSPTCP
+		in.Transport = vrcdn.RTSP
 	}
 
 	s.mu.Lock()

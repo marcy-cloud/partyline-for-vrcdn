@@ -65,6 +65,7 @@
     const parts = [codec.toUpperCase()]
     if (sampleRate) parts.push(`${sampleRate / 1000} kHz`)
     if (channels) parts.push(channels === 2 ? 'stereo' : channels === 1 ? 'mono' : `${channels} ch`)
+    if (player.via) parts.push(player.via.toUpperCase())
     return parts.join(' · ')
   })
 

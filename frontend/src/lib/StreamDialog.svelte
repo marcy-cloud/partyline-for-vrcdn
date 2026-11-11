@@ -16,7 +16,7 @@
   let { stream, index, count, canPlay, onsave, ondelete, onmove, onclose }: Props = $props()
 
   let dialog: HTMLDialogElement
-  let draft = $state<Stream>({ id: '', label: '', source: '', transport: 'rtsp-tcp' })
+  let draft = $state<Stream>({ id: '', label: '', source: '', transport: 'rtsp' })
   let error = $state('')
   let confirmingDelete = $state(false)
   let saving = $state(false)

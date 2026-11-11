@@ -1,6 +1,7 @@
 package player
 
 import (
+	"fmt"
 	"math"
 	"strings"
 	"sync"
@@ -28,21 +29,27 @@ type State struct {
 	BufferMs int `json:"bufferMs"`
 	// CatchingUp is true while playing fast to drain the buffer.
 	CatchingUp bool `json:"catchingUp"`
-	// Message explains Reconnecting and Failed states.
+	// Message explains Reconnecting and Failed states, and a fallback in
+	// progress while Connecting.
 	Message string `json:"message"`
 	// Attempt counts reconnect attempts since audio was last heard.
 	Attempt int `json:"attempt"`
 	// SinceMs is when audio started (Unix ms), or 0.
 	SinceMs int64      `json:"sinceMs"`
 	Info    StreamInfo `json:"info"`
+	// Via is the RTSP transport in use ("udp" or "tcp"), or "" for streams
+	// that aren't RTSP.
+	Via string `json:"via"`
 }
 
 // Target is a stream to play.
 type Target struct {
-	StreamID      string
-	Label         string
-	URL           string
-	RTSPTransport string
+	StreamID string
+	Label    string
+	URL      string
+	// RTSPTransports lists the RTSP transports to try, in order ("udp",
+	// "tcp"). Empty for streams that aren't RTSP.
+	RTSPTransports []string
 }
 
 // Options are the user-tunable policies.
@@ -61,6 +68,10 @@ type Tuning struct {
 	Backoff func(attempt int) time.Duration
 	// ConnectTimeout is how long a load may take to produce audio.
 	ConnectTimeout time.Duration
+	// FallbackAfter is how long a load may take to produce audio before the
+	// next RTSP transport is tried, when there is one. UDP that a router
+	// drops connects fine and then stays silent, so this is the only tell.
+	FallbackAfter time.Duration
 	// StallTimeout is how long the position may stand still while playing.
 	StallTimeout time.Duration
 	// CatchUpSustain is how long the buffer must stay over the threshold
@@ -77,6 +88,7 @@ func DefaultTuning() Tuning {
 			return time.Duration(min(attempt, 3)) * time.Second
 		},
 		ConnectTimeout: 12 * time.Second,
+		FallbackAfter:  4 * time.Second,
 		StallTimeout:   4 * time.Second,
 		CatchUpSustain: time.Second,
 		CatchUpSpeed:   1.1,
@@ -108,6 +120,13 @@ type Controller struct {
 	loading      bool
 	retry        <-chan time.Time
 	connectLimit <-chan time.Time
+	fallback     <-chan time.Time
+	// transport indexes target.RTSPTransports: the one in use.
+	transport int
+	// learned is how far down that list a fallback has had to go. Whether
+	// UDP gets through is a property of the network, not of one stream, so
+	// later streams start there instead of waiting out the same failure.
+	learned      int
 	lastPos      float64
 	lastProgress time.Time
 	overSince    time.Time
@@ -212,6 +231,11 @@ func (c *Controller) loop() {
 				_ = c.engine.Stop()
 				c.lost("Timed out connecting")
 			}
+		case <-c.fallback:
+			c.fallback = nil
+			if c.loading {
+				c.fallBack()
+			}
 		case <-c.done:
 			return
 		}
@@ -240,6 +264,7 @@ func (c *Controller) play(t Target) {
 		URL:      t.URL,
 		BufferMs: -1,
 	}
+	c.transport = max(min(c.learned, len(t.RTSPTransports)-1), 0)
 	c.load()
 }
 
@@ -253,7 +278,13 @@ func (c *Controller) load() {
 	c.state.BufferMs = -1
 	c.state.SinceMs = 0
 
-	entry, err := c.engine.Load(c.target.URL, c.target.RTSPTransport)
+	transports := c.target.RTSPTransports
+	c.state.Via = ""
+	if len(transports) > 0 {
+		c.state.Via = transports[c.transport]
+	}
+
+	entry, err := c.engine.Load(c.target.URL, c.state.Via)
 	if err != nil {
 		c.loading = false
 		c.lost(err.Error())
@@ -262,6 +293,33 @@ func (c *Controller) load() {
 	c.entry = entry
 	c.loading = true
 	c.connectLimit = time.After(c.tuning.ConnectTimeout)
+	c.fallback = nil
+	if c.canFallBack() {
+		c.fallback = time.After(c.tuning.FallbackAfter)
+	}
+}
+
+func (c *Controller) canFallBack() bool {
+	return c.target != nil && c.transport < len(c.target.RTSPTransports)-1
+}
+
+// fallBack restarts the current attempt on the next RTSP transport. It is
+// not a reconnect: the attempt count and status stay as they are.
+func (c *Controller) fallBack() {
+	from := c.target.RTSPTransports[c.transport]
+	c.transport++
+	c.load()
+	if c.state.Status == Connecting && c.loading {
+		c.state.Message = fmt.Sprintf("No audio over %s, trying %s",
+			strings.ToUpper(from), strings.ToUpper(c.state.Via))
+	}
+}
+
+// transportRefused reports whether the server turned down the RTSP
+// transport itself, as opposed to the stream being offline.
+func transportRefused(detail string) bool {
+	low := strings.ToLower(detail)
+	return strings.Contains(low, "461") || strings.Contains(low, "unsupported transport")
 }
 
 func (c *Controller) stop() {
@@ -269,6 +327,7 @@ func (c *Controller) stop() {
 	c.loading = false
 	c.retry = nil
 	c.connectLimit = nil
+	c.fallback = nil
 	c.endCatchUp()
 	_ = c.engine.Stop()
 	c.state = State{Status: Idle, BufferMs: -1}
@@ -312,6 +371,8 @@ func (c *Controller) handle(ev Event) {
 	case EvStarted:
 		c.loading = false
 		c.connectLimit = nil
+		c.fallback = nil
+		c.learned = max(c.learned, c.transport)
 		if c.state.Status != Playing {
 			c.state.SinceMs = time.Now().UnixMilli()
 		}
@@ -328,6 +389,10 @@ func (c *Controller) handle(ev Event) {
 		}
 		if c.state.Status == Reconnecting && !c.loading {
 			// Already handled (e.g. by the stall or connect watchdog).
+			return
+		}
+		if c.loading && c.canFallBack() && transportRefused(ev.Detail) {
+			c.fallBack()
 			return
 		}
 		detail := ev.Detail
@@ -422,6 +487,7 @@ func (c *Controller) endCatchUp() {
 func (c *Controller) lost(detail string) {
 	c.loading = false
 	c.connectLimit = nil
+	c.fallback = nil
 	c.endCatchUp()
 	c.state.BufferMs = -1
 	c.state.SinceMs = 0

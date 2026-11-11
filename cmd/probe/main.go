@@ -2,7 +2,7 @@
 // audio devices and, given a stream, plays it while printing state changes.
 //
 //	go run ./cmd/probe                     # check libmpv + list devices
-//	go run ./cmd/probe somedj              # play a VRCDN stream over RTSP/TCP
+//	go run ./cmd/probe somedj              # play a VRCDN stream over RTSP (UDP, then TCP)
 //	go run ./cmd/probe -transport flv somedj
 //	go run ./cmd/probe -for 30s -volume 0 somedj   # a silent 30-second check
 //	go run ./cmd/probe -device "wasapi/{...}" rtsp://host/live/x
@@ -21,7 +21,7 @@ import (
 )
 
 func main() {
-	transport := flag.String("transport", string(vrcdn.RTSPTCP), "rtsp-tcp, rtsp-udp, flv or mpegts")
+	transport := flag.String("transport", string(vrcdn.RTSP), "rtsp (UDP, then TCP), rtsp-udp, rtsp-tcp, flv or mpegts")
 	device := flag.String("device", "auto", "audio device name")
 	volume := flag.Float64("volume", 100, "volume 0-100")
 	duration := flag.Duration("for", 0, "stop after this long, e.g. 30s (default: until Ctrl+C)")
@@ -58,10 +58,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "error: unknown transport %q\n", *transport)
 		os.Exit(2)
 	}
-	target := player.Target{Label: src.Display(), URL: src.URL(tr)}
-	if src.Custom == "" {
-		target.RTSPTransport = tr.RTSPTransport()
-	}
+	target := player.Target{Label: src.Display(), URL: src.URL(tr), RTSPTransports: src.RTSPTransports(tr)}
 
 	_ = engine.SetAudioDevice(*device)
 	_ = engine.SetVolume(*volume)
@@ -78,6 +75,9 @@ func main() {
 			}
 			if s.Info.Codec != "" {
 				line += fmt.Sprintf("  %s %d Hz %dch", s.Info.Codec, s.Info.SampleRate, s.Info.Channels)
+			}
+			if s.Via != "" {
+				line += "  via " + s.Via
 			}
 			if s.Message != "" {
 				line += fmt.Sprintf("  %s (attempt %d)", s.Message, s.Attempt)

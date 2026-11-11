@@ -1,6 +1,9 @@
 package vrcdn
 
-import "testing"
+import (
+	"reflect"
+	"testing"
+)
 
 func TestParseVRCDNInputs(t *testing.T) {
 	// Every endpoint the VRCDN dashboard shows should reduce to the name.
@@ -79,7 +82,28 @@ func TestTransport(t *testing.T) {
 	if !RTSPTCP.Valid() || Transport("hls").Valid() {
 		t.Error("Valid() wrong")
 	}
-	if RTSPTCP.RTSPTransport() != "tcp" || RTSPUDP.RTSPTransport() != "udp" || FLV.RTSPTransport() != "" {
-		t.Error("RTSPTransport() wrong")
+	if Transports[0] != RTSP {
+		t.Error("the default transport should be UDP-first RTSP")
+	}
+
+	vrcdnStream := Source{Name: "dj"}
+	cases := []struct {
+		src  Source
+		t    Transport
+		want []string
+	}{
+		{vrcdnStream, RTSP, []string{"udp", "tcp"}},
+		{vrcdnStream, RTSPUDP, []string{"udp"}},
+		{vrcdnStream, RTSPTCP, []string{"tcp"}},
+		{vrcdnStream, FLV, nil},
+		// Custom URLs ignore the setting.
+		{Source{Custom: "rtsp://relay.example/live/x"}, FLV, []string{"udp", "tcp"}},
+		{Source{Custom: "RTSPS://relay.example/live/x"}, RTSP, []string{"tcp"}},
+		{Source{Custom: "https://relay.example/x.flv"}, RTSP, nil},
+	}
+	for _, c := range cases {
+		if got := c.src.RTSPTransports(c.t); !reflect.DeepEqual(got, c.want) {
+			t.Errorf("%+v with %q: got %v, want %v", c.src, c.t, got, c.want)
+		}
 	}
 }

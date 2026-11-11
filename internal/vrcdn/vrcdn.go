@@ -17,12 +17,14 @@ const Host = "stream.vrcdn.live"
 type Transport string
 
 const (
-	// RTSPTCP is RTSP interleaved over TCP. Lowest latency that survives
-	// most networks; the default.
-	RTSPTCP Transport = "rtsp-tcp"
-	// RTSPUDP is RTSP with RTP over UDP. Can be slightly lower latency but
-	// is often blocked by NAT/firewalls.
+	// RTSP is RTSP that tries RTP over UDP first and falls back to TCP when
+	// no audio arrives. The default.
+	RTSP Transport = "rtsp"
+	// RTSPUDP is RTSP with RTP over UDP only. Lowest latency, but often
+	// blocked by NAT/firewalls.
 	RTSPUDP Transport = "rtsp-udp"
+	// RTSPTCP is RTSP interleaved over TCP only. Works almost everywhere.
+	RTSPTCP Transport = "rtsp-tcp"
 	// FLV is HTTP-FLV over HTTPS.
 	FLV Transport = "flv"
 	// MPEGTS is MPEG-TS over HTTPS.
@@ -30,7 +32,7 @@ const (
 )
 
 // Transports lists every supported transport, default first.
-var Transports = []Transport{RTSPTCP, RTSPUDP, FLV, MPEGTS}
+var Transports = []Transport{RTSP, RTSPUDP, RTSPTCP, FLV, MPEGTS}
 
 // Valid reports whether t is a known transport.
 func (t Transport) Valid() bool {
@@ -159,14 +161,32 @@ func (s Source) Display() string {
 // streams, the full URL for custom ones.
 func (s Source) Canonical() string { return s.Display() }
 
-// RTSPTransport returns the libav rtsp_transport value for t, or "" when the
-// transport is not RTSP.
-func (t Transport) RTSPTransport() string {
+// RTSPTransports returns the libav rtsp_transport values to try for t, in
+// order, or nil when the transport is not RTSP.
+func (t Transport) RTSPTransports() []string {
 	switch t {
-	case RTSPTCP:
-		return "tcp"
+	case RTSP:
+		return []string{"udp", "tcp"}
 	case RTSPUDP:
-		return "udp"
+		return []string{"udp"}
+	case RTSPTCP:
+		return []string{"tcp"}
 	}
-	return ""
+	return nil
+}
+
+// RTSPTransports returns the rtsp_transport values to try for this source
+// with the stream's transport setting. A custom rtsp:// URL has no setting
+// of its own and gets the default order; rtsps:// is TCP only.
+func (s Source) RTSPTransports(t Transport) []string {
+	if s.Custom == "" {
+		return t.RTSPTransports()
+	}
+	switch low := strings.ToLower(s.Custom); {
+	case strings.HasPrefix(low, "rtsp://"):
+		return RTSP.RTSPTransports()
+	case strings.HasPrefix(low, "rtsps://"):
+		return RTSPTCP.RTSPTransports()
+	}
+	return nil
 }

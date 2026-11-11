@@ -157,9 +157,7 @@ func (a *App) Play(id string) error {
 		Label:    st.Label,
 		URL:      src.URL(st.Transport),
 	}
-	if src.Custom == "" {
-		target.RTSPTransport = st.Transport.RTSPTransport()
-	}
+	target.RTSPTransports = src.RTSPTransports(st.Transport)
 	a.ctl.Play(target)
 	return nil
 }

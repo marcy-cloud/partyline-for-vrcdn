@@ -131,7 +131,7 @@
     }
   }
 
-  const blank: Stream = { id: '', label: '', source: '', transport: 'rtsp-tcp' }
+  const blank: Stream = { id: '', label: '', source: '', transport: 'rtsp' }
 </script>
 
 <svelte:window {onkeydown} />

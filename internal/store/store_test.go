@@ -43,7 +43,7 @@ func TestSaveNormalizesAndPersists(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if a.ID == "" || a.Label != "DJ A" || a.Source != "dja" || a.Transport != vrcdn.RTSPTCP {
+	if a.ID == "" || a.Label != "DJ A" || a.Source != "dja" || a.Transport != vrcdn.RTSP {
 		t.Errorf("saved = %+v", a)
 	}
 
@@ -163,5 +163,39 @@ func TestCorruptConfigIsKept(t *testing.T) {
 	}
 	if _, statErr := os.Stat(path + ".bad"); statErr != nil {
 		t.Errorf("corrupt file not preserved: %v", statErr)
+	}
+}
+
+// Version 1 configs stored RTSP over TCP only because it was the default;
+// they move to the UDP-first default. A TCP choice made since is kept.
+func TestVersion1TCPBecomesUDPFirst(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.json")
+	v1 := `{"version":1,"streams":[
+		{"id":"a","label":"A","source":"dja","transport":"rtsp-tcp"},
+		{"id":"b","label":"B","source":"djb","transport":"flv"}]}`
+	if err := os.WriteFile(path, []byte(v1), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := s.Streams()
+	if got[0].Transport != vrcdn.RTSP || got[1].Transport != vrcdn.FLV {
+		t.Fatalf("after migration: %q, %q", got[0].Transport, got[1].Transport)
+	}
+
+	// Choosing TCP only now is a real choice and must survive a reload.
+	pinned := got[0]
+	pinned.Transport = vrcdn.RTSPTCP
+	if _, err := s.SaveStream(pinned); err != nil {
+		t.Fatal(err)
+	}
+	again, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tr := again.Streams()[0].Transport; tr != vrcdn.RTSPTCP {
+		t.Errorf("TCP-only choice reloaded as %q", tr)
 	}
 }

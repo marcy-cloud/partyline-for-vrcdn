@@ -4,11 +4,12 @@
 import * as Backend from '../../wailsjs/go/main/App'
 import { EventsOn } from '../../wailsjs/runtime/runtime'
 
-export type Transport = 'rtsp-tcp' | 'rtsp-udp' | 'flv' | 'mpegts'
+export type Transport = 'rtsp' | 'rtsp-udp' | 'rtsp-tcp' | 'flv' | 'mpegts'
 
 export const transports: { value: Transport; label: string; hint: string }[] = [
-  { value: 'rtsp-tcp', label: 'RTSP · TCP', hint: 'Lowest latency that works almost everywhere' },
-  { value: 'rtsp-udp', label: 'RTSP · UDP', hint: 'Can be slightly faster; often blocked by routers' },
+  { value: 'rtsp', label: 'RTSP', hint: 'Tries UDP first for the lowest latency, then falls back to TCP' },
+  { value: 'rtsp-udp', label: 'RTSP · UDP only', hint: 'Lowest latency; often blocked by routers' },
+  { value: 'rtsp-tcp', label: 'RTSP · TCP only', hint: 'Works almost everywhere' },
   { value: 'flv', label: 'FLV', hint: 'Over HTTPS; use if RTSP is blocked' },
   { value: 'mpegts', label: 'MPEG-TS', hint: 'Over HTTPS; use if RTSP is blocked' },
 ]
@@ -49,6 +50,8 @@ export interface PlayerState {
   attempt: number
   sinceMs: number
   info: { codec: string; sampleRate: number; channels: number }
+  /** RTSP transport in use: 'udp', 'tcp', or '' when the stream isn't RTSP. */
+  via: string
 }
 
 export interface AudioDevice {
@@ -79,6 +82,7 @@ export const idleState: PlayerState = {
   attempt: 0,
   sinceMs: 0,
   info: { codec: '', sampleRate: 0, channels: 0 },
+  via: '',
 }
 
 export interface Api {

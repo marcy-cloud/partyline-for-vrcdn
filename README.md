@@ -25,8 +25,11 @@ single exe with nothing else to install.
   skips whatever queued up while connecting, plays 10% fast when the queue
   later stays above a threshold, and drops it outright if it gets very large.
 - **Output device and volume**, remembered between runs.
-- Per-stream connection type: RTSP over TCP (default), RTSP over UDP, FLV or
-  MPEG-TS.
+- **UDP first.** RTSP streams are tried over UDP, which has the lowest
+  latency, and fall back to TCP if no audio arrives within 4 seconds (many
+  routers drop the UDP). Once that has happened, later streams go straight
+  to TCP until the app is restarted. Each stream can also be pinned to UDP
+  only, TCP only, FLV or MPEG-TS.
 
 ## Running it
 
@@ -143,7 +146,8 @@ touching it.
 
 - no video, no cache, `cache-pause=no`, `audio-buffer=0`
 - `demuxer-lavf-o=fflags=+nobuffer`, minimal stream probing
-- RTSP over TCP by default
+- RTSP over UDP first, so one lost packet does not hold up the ones behind
+  it, with TCP as the fallback
 - the demuxer reads everything the network has delivered
   (`demuxer-readahead-secs`), so the buffer readout shows the whole backlog
   and a resync clears all of it

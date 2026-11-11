@@ -14,6 +14,7 @@ type fakeEngine struct {
 	events  chan Event
 	next    int64
 	loads   []string
+	via     []string // the RTSP transport of each load
 	stops   int
 	drops   int
 	speeds  []float64
@@ -22,7 +23,7 @@ type fakeEngine struct {
 
 func newFakeEngine() *fakeEngine { return &fakeEngine{events: make(chan Event, 64)} }
 
-func (f *fakeEngine) Load(url, _ string) (int64, error) {
+func (f *fakeEngine) Load(url, rtspTransport string) (int64, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.loadErr != nil {
@@ -30,6 +31,7 @@ func (f *fakeEngine) Load(url, _ string) (int64, error) {
 	}
 	f.next++
 	f.loads = append(f.loads, url)
+	f.via = append(f.via, rtspTransport)
 	return f.next, nil
 }
 func (f *fakeEngine) Stop() error        { f.mu.Lock(); f.stops++; f.mu.Unlock(); return nil }
@@ -48,6 +50,14 @@ func (f *fakeEngine) Describe() string                     { return "fake" }
 func (f *fakeEngine) Close()                               {}
 
 func (f *fakeEngine) loadCount() int { f.mu.Lock(); defer f.mu.Unlock(); return len(f.loads) }
+func (f *fakeEngine) lastVia() string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if len(f.via) == 0 {
+		return ""
+	}
+	return f.via[len(f.via)-1]
+}
 func (f *fakeEngine) stopCount() int { f.mu.Lock(); defer f.mu.Unlock(); return f.stops }
 func (f *fakeEngine) dropCount() int { f.mu.Lock(); defer f.mu.Unlock(); return f.drops }
 func (f *fakeEngine) lastSpeed() float64 {
@@ -72,6 +82,7 @@ func testTuning() Tuning {
 	return Tuning{
 		Backoff:        func(int) time.Duration { return 20 * time.Millisecond },
 		ConnectTimeout: 5 * time.Second,
+		FallbackAfter:  5 * time.Second,
 		StallTimeout:   5 * time.Second,
 		CatchUpSustain: 0,
 		CatchUpSpeed:   1.1,
@@ -105,8 +116,12 @@ func waitStatus(t *testing.T, c *Controller, want Status) State {
 	return c.State()
 }
 
-var djA = Target{StreamID: "a", Label: "DJ A", URL: "rtsp://x/a", RTSPTransport: "tcp"}
-var djB = Target{StreamID: "b", Label: "DJ B", URL: "rtsp://x/b", RTSPTransport: "tcp"}
+var djA = Target{StreamID: "a", Label: "DJ A", URL: "rtsp://x/a", RTSPTransports: []string{"tcp"}}
+var djB = Target{StreamID: "b", Label: "DJ B", URL: "rtsp://x/b", RTSPTransports: []string{"tcp"}}
+
+// The default RTSP setting: UDP first, then TCP.
+var udpFirstA = Target{StreamID: "a", Label: "DJ A", URL: "rtsp://x/a", RTSPTransports: []string{"udp", "tcp"}}
+var udpFirstB = Target{StreamID: "b", Label: "DJ B", URL: "rtsp://x/b", RTSPTransports: []string{"udp", "tcp"}}
 
 func TestPlayThenStop(t *testing.T) {
 	c, f := start(t, defaultOpts, testTuning())
@@ -479,5 +494,96 @@ func TestHooks(t *testing.T) {
 	defer mu.Unlock()
 	if states[0] != Connecting || states[1] != Playing {
 		t.Errorf("state hook saw %v", states)
+	}
+}
+
+func TestUDPIsTriedFirst(t *testing.T) {
+	tuning := testTuning()
+	tuning.FallbackAfter = 40 * time.Millisecond
+	c, f := start(t, defaultOpts, tuning)
+	c.Play(udpFirstA)
+	if f.lastVia() != "udp" {
+		t.Fatalf("first attempt over %q, want udp", f.lastVia())
+	}
+	f.started()
+	st := waitStatus(t, c, Playing)
+	if st.Via != "udp" {
+		t.Errorf("Via = %q, want udp", st.Via)
+	}
+
+	// Audio arrived in time, so nothing falls back.
+	time.Sleep(3 * tuning.FallbackAfter)
+	if f.loadCount() != 1 || c.State().Status != Playing {
+		t.Errorf("loads = %d, status = %s after UDP worked", f.loadCount(), c.State().Status)
+	}
+}
+
+func TestFallsBackToTCPWhenUDPStaysSilent(t *testing.T) {
+	tuning := testTuning()
+	tuning.FallbackAfter = 40 * time.Millisecond
+	c, f := start(t, defaultOpts, tuning)
+	c.Play(udpFirstA)
+
+	waitFor(t, "TCP attempt", func() bool { return c.State().Via == "tcp" })
+	if f.lastVia() != "tcp" || f.loadCount() != 2 {
+		t.Fatalf("after %d loads the engine is on %q, want tcp on the second", f.loadCount(), f.lastVia())
+	}
+	// Still the same connection attempt as far as the user is concerned.
+	if st := c.State(); st.Status != Connecting || st.Attempt != 0 || st.Message != "No audio over UDP, trying TCP" {
+		t.Errorf("state during fallback = %+v", st)
+	}
+
+	f.started()
+	st := waitStatus(t, c, Playing)
+	if st.Via != "tcp" || st.Message != "" {
+		t.Errorf("state after fallback = %+v", st)
+	}
+
+	// The network doesn't pass UDP, so the next stream goes straight to TCP
+	// instead of sitting through the same silence.
+	c.Play(udpFirstB)
+	if f.lastVia() != "tcp" || f.loadCount() != 3 {
+		t.Errorf("next stream: via %q after %d loads, want tcp straight away", f.lastVia(), f.loadCount())
+	}
+	// ...and a stream pinned to UDP is still honoured.
+	c.Play(Target{StreamID: "c", URL: "rtsp://x/c", RTSPTransports: []string{"udp"}})
+	if f.lastVia() != "udp" {
+		t.Errorf("UDP-only stream went over %q", f.lastVia())
+	}
+}
+
+func TestOfflineStreamDoesNotFallBack(t *testing.T) {
+	c, f := start(t, defaultOpts, testTuning())
+	c.Play(udpFirstA)
+	f.failed("Server returned 404 Not Found")
+	waitStatus(t, c, Reconnecting)
+
+	// The retry is over UDP again: being offline says nothing about UDP.
+	waitFor(t, "retry", func() bool { return f.loadCount() == 2 })
+	if f.lastVia() != "udp" {
+		t.Errorf("retry over %q, want udp", f.lastVia())
+	}
+}
+
+func TestFallsBackAtOnceWhenUDPIsRefused(t *testing.T) {
+	c, f := start(t, defaultOpts, testTuning()) // FallbackAfter is far away
+	c.Play(udpFirstA)
+	f.failed("method SETUP failed: 461 Unsupported transport")
+
+	waitFor(t, "TCP attempt", func() bool { return c.State().Via == "tcp" })
+	if st := c.State(); f.lastVia() != "tcp" || st.Status != Connecting || st.Attempt != 0 {
+		t.Errorf("via %q, state %+v", f.lastVia(), st)
+	}
+}
+
+func TestStopCancelsFallback(t *testing.T) {
+	tuning := testTuning()
+	tuning.FallbackAfter = 40 * time.Millisecond
+	c, f := start(t, defaultOpts, tuning)
+	c.Play(udpFirstA)
+	c.Stop()
+	time.Sleep(3 * tuning.FallbackAfter)
+	if f.loadCount() != 1 || c.State().Status != Idle {
+		t.Errorf("loads = %d, status = %s after stop", f.loadCount(), c.State().Status)
 	}
 }

@@ -18,10 +18,10 @@ export function createMock(): Api {
     demo === 'empty'
       ? []
       : [
-          { id: 'a', label: 'Opening set', source: 'opening_dj', transport: 'rtsp-tcp' },
-          { id: 'b', label: 'Main room', source: 'mainroom', transport: 'rtsp-tcp' },
+          { id: 'a', label: 'Opening set', source: 'opening_dj', transport: 'rtsp' },
+          { id: 'b', label: 'Main room', source: 'mainroom', transport: 'rtsp' },
           { id: 'c', label: 'Guest (offline)', source: 'guest_offline', transport: 'flv' },
-          { id: 'd', label: 'Backup relay', source: 'rtsp://relay.example.net:8554/live/backup', transport: 'rtsp-tcp' },
+          { id: 'd', label: 'Backup relay', source: 'rtsp://relay.example.net:8554/live/backup', transport: 'rtsp' },
           { id: 'e', label: 'Closing set', source: 'closer', transport: 'mpegts' },
         ]
   let settings: Settings = {
@@ -81,6 +81,7 @@ export function createMock(): Api {
           sinceMs: Date.now() - 754_000,
           bufferMs: 40,
           info: { codec: 'aac', sampleRate: 48000, channels: 2 },
+          via: stream.transport.startsWith('rtsp') || stream.source.startsWith('rtsp') ? 'udp' : '',
         })
         let t = 0
         timers.push(

@@ -92,6 +92,7 @@ export namespace player {
 	    attempt: number;
 	    sinceMs: number;
 	    info: StreamInfo;
+	    via: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new State(source);
@@ -109,6 +110,7 @@ export namespace player {
 	        this.attempt = source["attempt"];
 	        this.sinceMs = source["sinceMs"];
 	        this.info = this.convertValues(source["info"], StreamInfo);
+	        this.via = source["via"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
