@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Name=VRCDN Low Latency Player
+Comment=Low-latency audio player for VRCDN streams
+# The Exec line includes %u to pass the URL to the application
+Exec=/usr/local/bin/vrcdn-lowlatency-player.exe %u
+Terminal=false
+Type=Application
+Icon=vrcdn-lowlatency-player.exe
+Categories=Utility;
+StartupWMClass=vrcdn-lowlatency-player.exe
+
+ 

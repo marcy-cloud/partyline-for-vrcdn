@@ -1,21 +1,22 @@
 // The one place the UI talks to the Go backend. Everything else imports
 // types and the Api interface from here, so the UI can also run in a plain
 // browser against the dev mock (npm run dev).
-import * as Backend from '../../wailsjs/go/main/App'
-import { EventsOn } from '../../wailsjs/runtime/runtime'
+import { Events } from '@wailsio/runtime'
+import { App as Backend } from '../../bindings/vrcdn-lowlatency-player'
 
 export type Transport = 'rtsp' | 'rtsp-udp' | 'rtsp-tcp' | 'flv' | 'mpegts'
 
-export const transports: { value: Transport; label: string; hint: string }[] = [
-  { value: 'rtsp', label: 'RTSP', hint: 'Tries UDP first for the lowest latency, then falls back to TCP' },
-  { value: 'rtsp-udp', label: 'RTSP · UDP only', hint: 'Lowest latency; often blocked by routers' },
-  { value: 'rtsp-tcp', label: 'RTSP · TCP only', hint: 'Works almost everywhere' },
-  { value: 'flv', label: 'FLV', hint: 'Over HTTPS; use if RTSP is blocked' },
-  { value: 'mpegts', label: 'MPEG-TS', hint: 'Over HTTPS; use if RTSP is blocked' },
+// label is for the dialog's menu, short for the narrow list rows.
+export const transports: { value: Transport; label: string; short: string; hint: string }[] = [
+  { value: 'rtsp', label: 'RTSP', short: 'RTSP', hint: 'Tries UDP first for the lowest latency, then falls back to TCP' },
+  { value: 'rtsp-udp', label: 'RTSP · UDP only', short: 'UDP only', hint: 'Lowest latency; often blocked by routers' },
+  { value: 'rtsp-tcp', label: 'RTSP · TCP only', short: 'TCP only', hint: 'Works almost everywhere' },
+  { value: 'flv', label: 'FLV', short: 'FLV', hint: 'Over HTTPS; use if RTSP is blocked' },
+  { value: 'mpegts', label: 'MPEG-TS', short: 'MPEG-TS', hint: 'Over HTTPS; use if RTSP is blocked' },
 ]
 
 export function transportLabel(t: Transport): string {
-  return transports.find((x) => x.value === t)?.label ?? t
+  return transports.find((x) => x.value === t)?.short ?? t
 }
 
 export interface Stream {
@@ -100,24 +101,36 @@ export interface Api {
   onDevices(cb: (devices: AudioDevice[]) => void): void
 }
 
-// The generated bindings type their arguments as classes; our interfaces are
-// the same shape on the wire.
+// The generated bindings use their own (enum-based) types; our interfaces
+// are the same shape on the wire. Go sends an empty list as null.
 const wails: Api = {
-  bootstrap: () => Backend.Bootstrap() as unknown as Promise<Bootstrap>,
+  bootstrap: async () => {
+    const boot = (await Backend.Bootstrap()) as unknown as Bootstrap
+    return { ...boot, streams: boot.streams ?? [], devices: boot.devices ?? [] }
+  },
   saveStream: (s) => Backend.SaveStream(s as never) as unknown as Promise<Stream>,
-  deleteStream: (id) => Backend.DeleteStream(id) as unknown as Promise<Stream[]>,
-  moveStream: (id, to) => Backend.MoveStream(id, to) as unknown as Promise<Stream[]>,
+  deleteStream: async (id) => ((await Backend.DeleteStream(id)) ?? []) as unknown as Stream[],
+  moveStream: async (id, to) => ((await Backend.MoveStream(id, to)) ?? []) as unknown as Stream[],
   play: (id) => Backend.Play(id),
   stop: () => Backend.Stop(),
   resync: () => Backend.Resync(),
   setVolume: (v) => Backend.SetVolume(v),
   updateSettings: (s) => Backend.UpdateSettings(s as never) as unknown as Promise<Settings>,
-  onState: (cb) => void EventsOn('state', cb),
-  onDevices: (cb) => void EventsOn('devices', cb),
+  onState: (cb) => void Events.On('state', (e) => cb(e.data as unknown as PlayerState)),
+  onDevices: (cb) => void Events.On('devices', (e) => cb((e.data ?? []) as unknown as AudioDevice[])),
+}
+
+/** True inside the Wails window, false in a plain browser (npm run dev). */
+function inWails(): boolean {
+  const w = window as {
+    chrome?: { webview?: { postMessage?: unknown } }
+    webkit?: { messageHandlers?: { external?: { postMessage?: unknown } } }
+  }
+  return !!(w.chrome?.webview?.postMessage || w.webkit?.messageHandlers?.external?.postMessage)
 }
 
 export async function connect(): Promise<Api> {
-  if ((window as { go?: { main?: { App?: unknown } } }).go?.main?.App) {
+  if (inWails()) {
     return wails
   }
   if (import.meta.env.DEV) {
@@ -126,7 +139,7 @@ export async function connect(): Promise<Api> {
   throw new Error('The player backend is not available.')
 }
 
-/** Go errors arrive as strings; JS ones as Error. */
+/** Turns whatever a failed call rejected with into text for the user. */
 export function errorText(e: unknown): string {
   if (typeof e === 'string') return e
   if (e instanceof Error) return e.message

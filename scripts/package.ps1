@@ -4,7 +4,7 @@
 #   powershell -ExecutionPolicy Bypass -File scripts\package.ps1
 #
 # Output: dist\vrcdn-lowlatency-player-<version>-windows-amd64.zip
-# Needs Go, Node and the Wails CLI (see README). libmpv is downloaded first
+# Needs Go, Node and the Wails v3 CLI (see README). libmpv is downloaded first
 # if tools/fetch-libmpv has not been run yet.
 
 $ErrorActionPreference = "Stop"
@@ -23,15 +23,15 @@ if (-not (Test-Path (Join-Path $bundled "manifest.json"))) {
 }
 $libmpv = Get-Content (Join-Path $bundled "manifest.json") -Raw | ConvertFrom-Json
 
-Invoke-Checked "wails build" { wails build -tags bundled_libmpv }
+Invoke-Checked "wails3 build" { wails3 build EXTRA_TAGS=bundled_libmpv }
 
-$version = (Get-Content (Join-Path $root "wails.json") -Raw | ConvertFrom-Json).info.productVersion
+$version = (Get-Content (Join-Path $root "build\windows\info.json") -Raw | ConvertFrom-Json).fixed.product_version
 $name = "vrcdn-lowlatency-player-$version-windows-amd64"
 $stage = Join-Path $root "dist\$name"
 if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
 New-Item -ItemType Directory -Path $stage | Out-Null
 
-Copy-Item (Join-Path $root "build\bin\vrcdn-lowlatency-player.exe") $stage
+Copy-Item (Join-Path $root "bin\vrcdn-lowlatency-player.exe") $stage
 Copy-Item (Join-Path $root "LICENSE") (Join-Path $stage "LICENSE.txt")
 
 # The notices, plus exactly which libmpv build is inside this exe.
@@ -48,7 +48,7 @@ $notices += @"
 
 # Licence texts of every Go module compiled into the exe.
 $licenses = Join-Path $stage "licenses"
-$modules = go list -deps -tags "desktop,production,bundled_libmpv" -f "{{with .Module}}{{.Path}}|{{.Dir}}{{end}}" . |
+$modules = go list -deps -tags "production,bundled_libmpv" -f "{{with .Module}}{{.Path}}|{{.Dir}}{{end}}" . |
     Sort-Object -Unique
 if ($LASTEXITCODE -ne 0) { throw "go list failed" }
 foreach ($line in $modules) {

@@ -1,7 +1,7 @@
 // Command fetch-libmpv downloads libmpv-2.dll for Windows (shinchiro's mpv
 // builds) and puts it in the two places the project uses it:
 //
-//	build/bin/libmpv-2.dll                   for `wails dev`, probe.exe and plain builds
+//	bin/libmpv-2.dll                         for `wails3 dev`, probe.exe and plain builds
 //	internal/libmpv/bundled/libmpv-2.dll.gz  compiled into the exe by
 //	internal/libmpv/bundled/manifest.json    builds with -tags bundled_libmpv
 //
@@ -65,8 +65,8 @@ func main() {
 }
 
 func run(root, tag, archive string) error {
-	if _, err := os.Stat(filepath.Join(root, "wails.json")); err != nil {
-		return fmt.Errorf("%s does not look like the repository root (no wails.json); pass -root", root)
+	if _, err := os.Stat(filepath.Join(root, "Taskfile.yml")); err != nil {
+		return fmt.Errorf("%s does not look like the repository root (no Taskfile.yml); pass -root", root)
 	}
 
 	m := manifest{File: dllName, Release: "local", Asset: filepath.Base(archive)}
@@ -92,7 +92,7 @@ func run(root, tag, archive string) error {
 		}
 	}
 
-	binDir := filepath.Join(root, "build", "bin")
+	binDir := filepath.Join(root, "bin")
 	bundleDir := filepath.Join(root, "internal", "libmpv", "bundled")
 	for _, d := range []string{binDir, bundleDir} {
 		if err := os.MkdirAll(d, 0o755); err != nil {

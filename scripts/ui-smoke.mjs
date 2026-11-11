@@ -1,0 +1,124 @@
+// Smoke test of the real window on Windows. Starts a development build with
+// WebView2's DevTools port open, then drives the UI the way a person would:
+// plays the first saved stream (muted, without saving the volume), stops it,
+// opens the dialog and switches theme, saving a screenshot at each step.
+//
+//   go build -tags bundled_libmpv -o bin/dev.exe .
+//   node scripts/ui-smoke.mjs bin\\dev.exe bin
+//
+// Needs Node 22+. Release builds don't open the DevTools port.
+import { spawn } from 'node:child_process'
+import { writeFileSync } from 'node:fs'
+import { join, resolve } from 'node:path'
+
+if (process.argv.length < 3) {
+  console.error('usage: node scripts/ui-smoke.mjs <dev build exe> [screenshot folder]')
+  process.exit(2)
+}
+const exe = resolve(process.argv[2])
+const out = resolve(process.argv[3] ?? '.')
+const PORT = 9333
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+
+const app = spawn(exe, [], {
+  env: { ...process.env, VRCDN_PLAYER_DEBUG_PORT: String(PORT) },
+  stdio: 'ignore',
+})
+let exited = null
+app.on('exit', (code) => (exited = code))
+
+let target
+for (let i = 0; i < 60 && !target; i++) {
+  await sleep(500)
+  if (exited !== null) throw new Error(`app exited early with code ${exited}`)
+  try {
+    const list = await (await fetch(`http://127.0.0.1:${PORT}/json/list`)).json()
+    target = list.find((t) => t.type === 'page')
+  } catch {}
+}
+if (!target) throw new Error('no WebView page appeared')
+console.log('page:', target.url, '|', target.title)
+
+const ws = new WebSocket(target.webSocketDebuggerUrl)
+await new Promise((res, rej) => { ws.onopen = res; ws.onerror = rej })
+let seq = 0
+const pending = new Map()
+ws.onmessage = (m) => {
+  const msg = JSON.parse(m.data)
+  if (msg.id && pending.has(msg.id)) { pending.get(msg.id)(msg); pending.delete(msg.id) }
+}
+const send = (method, params = {}) => new Promise((res) => { const id = ++seq; pending.set(id, res); ws.send(JSON.stringify({ id, method, params })) })
+const js = async (expression) => {
+  const r = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true })
+  if (r.result?.exceptionDetails) throw new Error(JSON.stringify(r.result.exceptionDetails).slice(0, 400))
+  return r.result?.result?.value
+}
+const shot = async (name) => {
+  const r = await send('Page.captureScreenshot', { format: 'png' })
+  writeFileSync(join(out, `${name}.png`), Buffer.from(r.result.data, 'base64'))
+  console.log('screenshot:', name)
+}
+const snapshot = () => js(`JSON.stringify({
+  size: innerWidth + 'x' + innerHeight,
+  theme: document.documentElement.dataset.theme,
+  badge: document.querySelector('.badge')?.innerText ?? null,
+  title: document.querySelector('.now h1')?.innerText ?? null,
+  message: document.querySelector('.message')?.innerText ?? null,
+  buffer: document.querySelector('.buffer .value')?.innerText?.replace(/\\s+/g, ' ') ?? null,
+  format: document.querySelector('.format')?.innerText ?? null,
+  rows: [...document.querySelectorAll('aside li')].map((li) => li.innerText.replace(/\\s+/g, ' ').trim()),
+  flair: !!document.querySelector('.flair'),
+  devices: document.querySelectorAll('.control select option').length,
+  engine: document.querySelector('footer')?.innerText ?? null,
+  callout: document.querySelector('.callout')?.innerText ?? null,
+  fonts: [...document.fonts].filter((f) => f.status === 'loaded').map((f) => f.family).filter((v, i, a) => a.indexOf(v) === i),
+})`).then(JSON.parse)
+
+try {
+  await js(`new Promise((r) => { const t = setInterval(() => { if (document.querySelector('.shell')) { clearInterval(t); r() } }, 100) })`)
+  await sleep(1500)
+  console.log('idle:', JSON.stringify(await snapshot()))
+  await shot('smoke-idle')
+
+  // Mute before playing (applies without saving), then click the first stream.
+  await js(`(() => { const s = document.querySelector('input[type=range]'); s.dataset.was = s.value; s.value = 0; s.dispatchEvent(new Event('input', { bubbles: true })) })()`)
+  const hasRow = await js(`!!document.querySelector('aside li .row')`)
+  if (hasRow) {
+    await js(`document.querySelector('aside li .row').click()`)
+    for (let i = 0; i < 16; i++) {
+      await sleep(500)
+      const s = await snapshot()
+      if (i % 4 === 3 || s.badge?.trim() === 'Live') console.log(`t+${(i + 1) / 2}s:`, s.badge?.trim(), '|', s.buffer, '|', s.format, '|', s.message)
+      if (s.badge?.trim() === 'Live' && i >= 5) break
+    }
+    console.log('playing:', JSON.stringify(await snapshot()))
+    await shot('smoke-playing')
+
+    // Resync, then stop.
+    await js(`[...document.querySelectorAll('.actions .btn')].find((b) => /Resync/.test(b.innerText))?.click()`)
+    await sleep(800)
+    await js(`[...document.querySelectorAll('.actions .btn')].find((b) => /Stop/.test(b.innerText))?.click()`)
+    await sleep(800)
+    console.log('after stop:', (await snapshot()).badge?.trim())
+  }
+
+  // The dialog and the theme switch.
+  await js(`document.querySelector('button[aria-label="Add stream"]').click()`)
+  await sleep(700)
+  await shot('smoke-dialog')
+  await js(`document.querySelector('dialog button[aria-label="Close"]').click()`)
+  await js(`document.querySelector('.titlebar button').click()`)
+  await sleep(400)
+  console.log('theme after toggle:', await js(`document.documentElement.dataset.theme`))
+  await shot('smoke-other-theme')
+  await js(`document.querySelector('.titlebar button').click()`)
+
+  // Put the volume back the way it was (still without saving).
+  await js(`(() => { const s = document.querySelector('input[type=range]'); s.value = s.dataset.was; s.dispatchEvent(new Event('input', { bubbles: true })) })()`)
+  await sleep(300)
+} finally {
+  ws.close()
+  app.kill()
+  await sleep(500)
+}
+console.log('done')

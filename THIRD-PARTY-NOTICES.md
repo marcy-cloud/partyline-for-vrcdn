@@ -32,20 +32,10 @@ To use a different libmpv, put its `libmpv-2.dll` next to the exe or set
 
 | Module | Licence |
 | --- | --- |
-| github.com/wailsapp/wails/v2 | MIT |
-| github.com/wailsapp/go-webview2 | MIT |
+| github.com/wailsapp/wails/v3 | MIT |
 | github.com/ebitengine/purego | Apache-2.0 |
-| github.com/tkrajina/go-reflector | Apache-2.0 |
-| github.com/bep/debounce | MIT |
-| github.com/gabriel-vasile/mimetype | MIT |
 | github.com/go-ole/go-ole | MIT |
-| github.com/leaanthony/go-ansi-parser, slicer, u | MIT |
-| github.com/rivo/uniseg | MIT |
-| github.com/samber/lo | MIT |
-| git.sr.ht/~jackmordaunt/go-toast/v2 | MIT |
-| github.com/google/uuid | BSD-3-Clause |
-| github.com/pkg/browser, github.com/pkg/errors | BSD-2-Clause |
-| golang.org/x/net, sys, text | BSD-3-Clause |
+| golang.org/x/sys | BSD-3-Clause |
 | Go standard library and runtime | BSD-3-Clause |
 
 ## User interface
@@ -53,4 +43,5 @@ To use a different libmpv, put its `libmpv-2.dll` next to the exe or set
 | Package | Licence |
 | --- | --- |
 | Svelte (runtime compiled into the UI) | MIT |
+| @wailsio/runtime (part of Wails) | MIT |
 | Fredoka, Nunito and VT323 fonts (via Fontsource) | OFL-1.1 |

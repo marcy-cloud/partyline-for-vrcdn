@@ -4,46 +4,62 @@ import (
 	"embed"
 	"log"
 
-	"github.com/wailsapp/wails/v2"
-	"github.com/wailsapp/wails/v2/pkg/options"
-	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/wailsapp/wails/v3/pkg/application"
+
+	"vrcdn-lowlatency-player/internal/player"
 )
 
 //go:embed all:frontend/dist
 var assets embed.FS
 
-func main() {
-	app := NewApp()
+func init() {
+	// Registered so the binding generator gives the UI typed events.
+	application.RegisterEvent[player.State](eventState)
+	application.RegisterEvent[[]player.AudioDevice](eventDevices)
+}
 
-	err := wails.Run(&options.App{
+func main() {
+	var window *application.WebviewWindow
+
+	app := application.New(application.Options{
+		Name:        appTitle,
+		Description: "Low-latency audio player for VRCDN streams",
+		Services: []application.Service{
+			application.NewService(NewApp()),
+		},
+		Assets: application.AssetOptions{
+			Handler: application.AssetFileServerFS(assets),
+		},
+		Mac: application.MacOptions{
+			ApplicationShouldTerminateAfterLastWindowClosed: true,
+		},
+		Windows: application.WindowsOptions{
+			AdditionalBrowserArgs: browserArgs(),
+		},
+		// Two copies would fight over the same audio device and config.
+		SingleInstance: &application.SingleInstanceOptions{
+			UniqueID: "vrcdn-lowlatency-player-7c0d1f0e",
+			OnSecondInstanceLaunch: func(application.SecondInstanceData) {
+				if window != nil {
+					window.Restore()
+					window.Focus()
+				}
+			},
+		},
+	})
+
+	window = app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:     appTitle,
 		Width:     880,
 		Height:    620,
 		MinWidth:  720,
 		MinHeight: 480,
-		AssetServer: &assetserver.Options{
-			Assets: assets,
-		},
-		// Matches --bg in the stylesheet so there's no flash while loading.
-		BackgroundColour: &options.RGBA{R: 26, G: 16, B: 51, A: 1}, // --gt-bg of the dark theme
-		OnStartup:        app.startup,
-		OnShutdown:       app.shutdown,
-		// Two copies would fight over the same audio device and config.
-		SingleInstanceLock: &options.SingleInstanceLock{
-			UniqueId: "vrcdn-lowlatency-player-7c0d1f0e",
-			OnSecondInstanceLaunch: func(options.SecondInstanceData) {
-				if app.ctx != nil {
-					runtime.WindowUnminimise(app.ctx)
-					runtime.Show(app.ctx)
-				}
-			},
-		},
-		Bind: []interface{}{
-			app,
-		},
+		// --gt-bg of the dark theme, so there's no bright flash while loading.
+		BackgroundColour: application.NewRGB(26, 16, 51),
+		URL:              "/",
 	})
-	if err != nil {
+
+	if err := app.Run(); err != nil {
 		log.Fatal(err)
 	}
 }

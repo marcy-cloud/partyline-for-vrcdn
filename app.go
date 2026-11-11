@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"vrcdn-lowlatency-player/internal/player"
 	"vrcdn-lowlatency-player/internal/store"
@@ -13,10 +13,16 @@ import (
 
 const appTitle = "VRCDN Low Latency Player"
 
-// App is the API the frontend calls. It owns nothing clever: saved streams
-// live in the store, playback policy in the player controller.
+// Events sent to the UI.
+const (
+	eventState   = "state"   // player.State, on every change
+	eventDevices = "devices" // []player.AudioDevice, when the set changes
+)
+
+// App is the API the frontend calls, registered with Wails as a service. It
+// owns nothing clever: saved streams live in the store, playback policy in
+// the player controller.
 type App struct {
-	ctx    context.Context
 	store  *store.Store
 	engine player.Engine
 	ctl    *player.Controller
@@ -43,9 +49,8 @@ type Bootstrap struct {
 
 func NewApp() *App { return &App{} }
 
-func (a *App) startup(ctx context.Context) {
-	a.ctx = ctx
-
+// ServiceStartup is called by Wails before the window loads.
+func (a *App) ServiceStartup(context.Context, application.ServiceOptions) error {
 	path, err := store.DefaultPath()
 	if err != nil {
 		path = "config.json"
@@ -58,29 +63,39 @@ func (a *App) startup(ctx context.Context) {
 
 	engine, err := player.NewMPVEngine(appTitle)
 	if err != nil {
+		// Not fatal: the UI opens and explains what is missing.
 		a.engineErr = err.Error()
-		return
+		return nil
 	}
 	a.engine = engine
 	_ = engine.SetVolume(settings.Volume)
 	_ = engine.SetAudioDevice(settings.AudioDevice)
 
 	a.ctl = player.NewController(engine, controllerOptions(settings), player.DefaultTuning(), player.Hooks{
-		State: func(s player.State) { runtime.EventsEmit(ctx, "state", s) },
+		State: func(s player.State) { emit(eventState, s) },
 		Devices: func() {
 			if devices, err := engine.AudioDevices(); err == nil {
-				runtime.EventsEmit(ctx, "devices", devices)
+				emit(eventDevices, devices)
 			}
 		},
 	})
+	return nil
 }
 
-func (a *App) shutdown(context.Context) {
+// ServiceShutdown is called by Wails when the application quits.
+func (a *App) ServiceShutdown() error {
 	if a.ctl != nil {
 		a.ctl.Close()
 	}
 	if a.engine != nil {
 		a.engine.Close()
+	}
+	return nil
+}
+
+func emit(name string, data any) {
+	if app := application.Get(); app != nil {
+		app.Event.Emit(name, data)
 	}
 }
 
