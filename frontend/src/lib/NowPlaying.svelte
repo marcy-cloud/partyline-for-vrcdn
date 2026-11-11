@@ -13,6 +13,9 @@
     engineError: string
     engineHelp: string
     hasStreams: boolean
+    /** Label of the stream the Play button starts; '' when there is none. */
+    resumeLabel: string
+    onplay: () => void
     onstop: () => void
     onresync: () => void
     onretry: () => void
@@ -28,6 +31,8 @@
     engineError,
     engineHelp,
     hasStreams,
+    resumeLabel,
+    onplay,
     onstop,
     onresync,
     onretry,
@@ -159,7 +164,16 @@
           {#if player.status === 'failed'}
             <button class="btn primary" onclick={onretry}><Icon name="play" />Try again</button>
           {:else}
-            <button class="btn candy" onclick={onstop} disabled={!busy}><Icon name="stop" />Stop</button>
+            <!-- One button for both, so it keeps keyboard focus and Stop then
+                 Play is two presses in the same place. -->
+            <button
+              class="btn candy toggle-play"
+              onclick={busy ? onstop : onplay}
+              disabled={!busy && !resumeLabel}
+              title={busy ? 'Stop' : resumeLabel ? `Play ${resumeLabel}` : 'Add a stream first'}
+            >
+              <Icon name={busy ? 'stop' : 'play'} />{busy ? 'Stop' : 'Play'}
+            </button>
           {/if}
           <button
             class="btn"
@@ -475,6 +489,11 @@
     display: flex;
     align-items: flex-end;
     font-size: var(--gt-text-small);
+  }
+
+  /* Same width for Stop and Play, so nothing shifts when it switches. */
+  .toggle-play {
+    min-width: 96px;
   }
 
   .actions {

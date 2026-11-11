@@ -1,7 +1,8 @@
 // Smoke test of the real window on Windows. Starts a development build with
 // WebView2's DevTools port open, then drives the UI the way a person would:
 // plays the first saved stream (muted, without saving the volume), stops it,
-// opens the dialog and switches theme, saving a screenshot at each step.
+// starts it again with the Play button, opens the dialog and switches theme,
+// saving a screenshot at each step.
 //
 //   go build -tags bundled_libmpv -o bin/dev.exe .
 //   node scripts/ui-smoke.mjs bin\\dev.exe bin
@@ -100,6 +101,19 @@ try {
     await js(`[...document.querySelectorAll('.actions .btn')].find((b) => /Stop/.test(b.innerText))?.click()`)
     await sleep(800)
     console.log('after stop:', (await snapshot()).badge?.trim())
+    await shot('smoke-stopped')
+
+    // The same button is now Play, and brings the stream straight back.
+    const label = await js(`document.querySelector('.actions .btn')?.innerText.trim()`)
+    await js(`document.querySelector('.actions .btn').click()`)
+    let back = null
+    for (let i = 0; i < 16 && back !== 'Live'; i++) {
+      await sleep(500)
+      back = (await snapshot()).badge?.trim()
+    }
+    console.log(`after pressing "${label}":`, back)
+    await js(`[...document.querySelectorAll('.actions .btn')].find((b) => /Stop/.test(b.innerText))?.click()`)
+    await sleep(500)
   }
 
   // The dialog and the theme switch.

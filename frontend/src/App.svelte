@@ -37,6 +37,11 @@
   let toast = $state('')
   let toastTimer: ReturnType<typeof setTimeout> | undefined
 
+  // What the Play button starts: the stream that was on last, or the first
+  // one in the list when nothing has been played yet.
+  let lastId = $state('')
+  let resume = $derived(streams.find((s) => s.id === lastId) ?? streams[0])
+
   let editingIndex = $derived(editing ? streams.findIndex((s) => s.id === editing!.id) : -1)
 
   function notify(message: string) {
@@ -51,6 +56,7 @@
     } else if (history.length > 0) {
       history = []
     }
+    if (next.streamId) lastId = next.streamId
     player = next
   }
 
@@ -155,6 +161,8 @@
       {engineError}
       {engineHelp}
       hasStreams={streams.length > 0}
+      resumeLabel={resume?.label ?? ''}
+      onplay={() => resume && play(resume.id)}
       onstop={() => call((a) => a.stop())}
       onresync={() => call((a) => a.resync())}
       onretry={() => player.streamId && call((a) => a.play(player.streamId))}
