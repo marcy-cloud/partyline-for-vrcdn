@@ -119,6 +119,12 @@ button:disabled {
   background: var(--gt-pink);
 }
 
+/* The "go" candy: mint instead of pink. */
+.btn.candy.go,
+.btn.candy.go:hover:not(:disabled) {
+  background: var(--gt-mint);
+}
+
 .btn.primary:hover:not(:disabled) {
   background: var(--gt-sunset);
 }

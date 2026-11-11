@@ -165,9 +165,11 @@
             <button class="btn primary" onclick={onretry}><Icon name="play" />Try again</button>
           {:else}
             <!-- One button for both, so it keeps keyboard focus and Stop then
-                 Play is two presses in the same place. -->
+                 Play is two presses in the same place: pink to stop, mint to
+                 play. -->
             <button
               class="btn candy toggle-play"
+              class:go={!busy}
               onclick={busy ? onstop : onplay}
               disabled={!busy && !resumeLabel}
               title={busy ? 'Stop' : resumeLabel ? `Play ${resumeLabel}` : 'Add a stream first'}
