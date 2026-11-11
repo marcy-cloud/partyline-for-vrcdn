@@ -1,0 +1,12 @@
+build/bin
+node_modules
+frontend/dist
+
+# libmpv is downloaded, not committed
+*.dll
+*.7z
+frontend/package.json.md5
+
+# written by tools/fetch-libmpv
+internal/libmpv/bundled/
+dist

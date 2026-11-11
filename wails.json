@@ -1,0 +1,14 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "VRCDN Low Latency Player",
+  "outputfilename": "vrcdn-lowlatency-player",
+  "frontend:install": "npm install",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "npm run dev",
+  "frontend:dev:serverUrl": "auto",
+  "info": {
+    "productName": "VRCDN Low Latency Player",
+    "productVersion": "0.1.0",
+    "comments": "Low-latency audio player for VRCDN streams"
+  }
+}
