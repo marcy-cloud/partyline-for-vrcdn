@@ -2,19 +2,18 @@
   // The DJ's side: send audio only to VRCDN. Rendered inside the main
   // panel's body, which styles the shared pieces (badge, controls, meter).
   import Icon from './Icon.svelte'
-  import { errorText, type Levels, type SendInfo, type SendSettings, type SendState, type SendStatus } from './api'
+  import type { Levels, SendInfo, SendSettings, SendState, SendStatus } from './api'
 
   interface Props {
     info: SendInfo
     current: SendState
     levels: Levels
     onsettings: (patch: Partial<SendSettings>) => void
-    onkey: (key: string) => Promise<void>
     onstart: () => void
     onstop: () => void
     onrefresh: () => void
   }
-  let { info, current, levels, onsettings, onkey, onstart, onstop, onrefresh }: Props = $props()
+  let { info, current, levels, onsettings, onstart, onstop, onrefresh }: Props = $props()
 
   const statusText: Record<SendStatus, string> = {
     off: 'Off air',
@@ -24,10 +23,10 @@
     failed: 'Stopped',
   }
 
-  let key = $state('')
-  let keyError = $state('')
+  // Where it goes: the send target chosen in the wing on the right.
+  let target = $derived(info.targets.find((t) => t.id === info.settings.targetId))
   let busy = $derived(current.status === 'connecting' || current.status === 'live' || current.status === 'reconnecting')
-  let ingestName = $derived(info.ingests.find((i) => i.url === info.settings.ingest)?.name ?? info.settings.ingest)
+  let ingestName = $derived(info.ingests.find((i) => i.url === target?.ingest)?.name ?? '')
 
   // The saved input may be unplugged; keep it listed so the choice survives.
   let devices = $derived(
@@ -53,15 +52,6 @@
   // The meter covers the top 60 dB, as on the player.
   const meterFill = (db: number) => `${Math.min(Math.max((db + 60) / 60, 0), 1) * 100}%`
 
-  async function saveKey(value: string) {
-    keyError = ''
-    try {
-      await onkey(value)
-      key = ''
-    } catch (e) {
-      keyError = errorText(e)
-    }
-  }
 </script>
 
 <section class="sending" data-status={current.status}>
@@ -69,8 +59,14 @@
     <span class="badge pixel"><span class="dot"></span>{statusText[current.status]}</span>
     {#if onAirFor}<span class="badge pixel clock num">{onAirFor}</span>{/if}
   </div>
-  <h1>Send to VRCDN</h1>
-  <p class="sub">Audio only · AAC {info.settings.bitrateKbps} kbps · 48 kHz stereo · {ingestName}</p>
+  <h1 class:quiet={!target}>{target ? target.label : 'Nowhere to send yet'}</h1>
+  <p class="sub">
+    {#if target}
+      Audio only · AAC {info.settings.bitrateKbps} kbps · 48 kHz stereo · {ingestName}
+    {:else}
+      Add a stream key under "Send to" on the right.
+    {/if}
+  </p>
   {#if current.message}
     <p class="message num">
       {current.status === 'reconnecting' ? `${current.message} · retrying (attempt ${current.attempt})` : current.message}
@@ -83,11 +79,11 @@
     class="btn candy go-live"
     class:go={!busy}
     onclick={busy ? onstop : onstart}
-    disabled={!busy && (!info.hasKey || !info.settings.device)}
+    disabled={!busy && (!target || !info.settings.device)}
     title={busy
       ? 'Stop sending'
-      : !info.hasKey
-        ? 'Save your stream key first'
+      : !target
+        ? 'Add somewhere to send to first'
         : !info.settings.device
           ? 'Choose an input first'
           : 'Start sending'}
@@ -131,47 +127,6 @@
   </div>
 
   <label class="control">
-    <span>Server</span>
-    <select
-      class="input wide"
-      value={info.settings.ingest}
-      onchange={(e) => onsettings({ ingest: e.currentTarget.value })}
-      disabled={busy}
-    >
-      {#each info.ingests as i (i.url)}
-        <option value={i.url}>{i.name}</option>
-      {/each}
-    </select>
-  </label>
-
-  <form
-    class="control"
-    onsubmit={(e) => {
-      e.preventDefault()
-      if (key.trim()) saveKey(key)
-    }}
-  >
-    <span>Key</span>
-    <span class="key">
-      <input
-        class="input mono"
-        type="password"
-        aria-label="Stream key"
-        bind:value={key}
-        placeholder={info.hasKey ? 'Saved · type to replace' : 'Stream key from the VRCDN panel'}
-        autocomplete="off"
-        spellcheck="false"
-        disabled={busy}
-      />
-      <button class="btn" disabled={busy || !key.trim()}>Save</button>
-      {#if info.hasKey}
-        <button type="button" class="btn ghost danger" onclick={() => saveKey('')} disabled={busy}>Forget</button>
-      {/if}
-    </span>
-  </form>
-  {#if keyError}<p class="key-error" role="alert">{keyError}</p>{/if}
-
-  <label class="control">
     <span>Quality</span>
     <select
       class="input wide"
@@ -186,10 +141,7 @@
   </label>
 </section>
 
-<p class="note">
-  For a DJ to VJ link, use your <b>private</b> stream key. It is stored encrypted for this Windows account and never
-  shown again.
-</p>
+<p class="note">Sends audio only, with no video. For a DJ to VJ link, send to your <b>private</b> stream key.</p>
 
 <style>
   .sending {
@@ -233,24 +185,8 @@
     grid-column: 2 / -1;
   }
 
-  /* The key field with its buttons, across the last two columns. */
-  .key {
-    grid-column: 2 / -1;
-    display: flex;
-    gap: var(--gt-space-2);
-    min-width: 0;
-  }
-
-  .key .input {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .key-error {
-    margin: 0 0 0 76px;
-    color: var(--gt-coral-text);
-    font-weight: 600;
-    font-size: var(--gt-text-small);
+  h1.quiet {
+    color: var(--gt-text-muted);
   }
 
   .note {

@@ -227,16 +227,54 @@ func TestAdoptLegacyConfig(t *testing.T) {
 	}
 }
 
-func TestSendSettingsRoundTrip(t *testing.T) {
+func TestSendTargets(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.json")
 	s, _ := Open(path)
-	want := Send{Ingest: "rtmp://uk.ingest.vrcdn.live/live", Device: "dev-1", BitrateKbps: 256, Key: "cHJvdGVjdGVk"}
-	if err := s.SetSend(want); err != nil {
+
+	if _, err := s.SaveSendTarget(SendTarget{Label: "No key"}); err == nil {
+		t.Fatal("a new target needs a key")
+	}
+	a, err := s.SaveSendTarget(SendTarget{Label: " Club X ", Ingest: "rtmp://uk.ingest.vrcdn.live/live", Key: "cHJvdGVjdGVk"})
+	if err != nil || a.ID == "" || a.Label != "Club X" {
+		t.Fatalf("saved %+v, %v", a, err)
+	}
+	s.SetSend(Send{Device: "dev-1", BitrateKbps: 256, TargetID: a.ID})
+
+	// Renaming without retyping the key keeps the key.
+	renamed, err := s.SaveSendTarget(SendTarget{ID: a.ID, Label: "Club X main"})
+	if err != nil || renamed.Key != "cHJvdGVjdGVk" || renamed.Label != "Club X main" {
+		t.Fatalf("renamed %+v, %v", renamed, err)
+	}
+
+	again, _ := Open(path)
+	if got := again.SendTargets(); len(got) != 1 || got[0] != renamed {
+		t.Fatalf("reloaded %+v", got)
+	}
+	if again.Send().TargetID != a.ID || again.Send().Device != "dev-1" {
+		t.Errorf("send settings %+v", again.Send())
+	}
+
+	again.DeleteSendTarget(a.ID)
+	if len(again.SendTargets()) != 0 || again.Send().TargetID != "" {
+		t.Errorf("after delete: %+v, selected %q", again.SendTargets(), again.Send().TargetID)
+	}
+}
+
+// A config from before send targets had one key and one server.
+func TestOldSendKeyBecomesATarget(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.json")
+	old := `{"version":2,"send":{"ingest":"rtmp://de.ingest.vrcdn.live/live","device":"d","bitrateKbps":320,"key":"cHJvdGVjdGVk"}}`
+	os.WriteFile(path, []byte(old), 0o644)
+	s, err := Open(path)
+	if err != nil {
 		t.Fatal(err)
 	}
-	again, err := Open(path)
-	if err != nil || again.Send() != want {
-		t.Fatalf("reloaded %+v, %v; want %+v", again.Send(), err, want)
+	targets := s.SendTargets()
+	if len(targets) != 1 || targets[0].Key != "cHJvdGVjdGVk" || targets[0].Ingest != "rtmp://de.ingest.vrcdn.live/live" {
+		t.Fatalf("targets %+v", targets)
+	}
+	if s.Send().TargetID != targets[0].ID || s.Send().Key != "" {
+		t.Errorf("send %+v", s.Send())
 	}
 }
 

@@ -79,6 +79,20 @@ type file struct {
 	Streams  []Stream `json:"streams"`
 	Settings Settings `json:"settings"`
 	Send     Send     `json:"send"`
+	// SendTargets are the saved places to send to.
+	SendTargets []SendTarget `json:"sendTargets"`
+}
+
+// SendTarget is a saved destination for the sender: a stream key and the
+// server to send it to, under a name.
+type SendTarget struct {
+	ID    string `json:"id"`
+	Label string `json:"label"`
+	// Ingest is the RTMP address to send to; "" means the default.
+	Ingest string `json:"ingest"`
+	// Key is the stream key in protected form (see package secret). It
+	// never leaves the backend.
+	Key string `json:"key,omitempty"`
 }
 
 // Send holds the sender's settings.
@@ -89,8 +103,10 @@ type Send struct {
 	Device string `json:"device"`
 	// BitrateKbps is the AAC bitrate; 0 means the default.
 	BitrateKbps int `json:"bitrateKbps"`
-	// Key is the stream key in protected form (see package secret), never
-	// in the clear. Empty when none is saved.
+	// TargetID is the send target last chosen.
+	TargetID string `json:"targetId"`
+	// Key is where the single stream key lived before there were send
+	// targets. Open turns it into a target; nothing writes it any more.
 	Key string `json:"key,omitempty"`
 }
 
@@ -160,6 +176,15 @@ func Open(path string) (*Store, error) {
 		if !t.Valid() || (loaded.Version < 2 && *t == vrcdn.RTSPTCP) {
 			*t = vrcdn.RTSP
 		}
+	}
+	// Before send targets there was one key and one server; keep them.
+	if loaded.Send.Key != "" {
+		if len(loaded.SendTargets) == 0 {
+			t := SendTarget{ID: newID(), Label: "My stream", Ingest: loaded.Send.Ingest, Key: loaded.Send.Key}
+			loaded.SendTargets = append(loaded.SendTargets, t)
+			loaded.Send.TargetID = t.ID
+		}
+		loaded.Send.Key = ""
 	}
 	loaded.Version = version
 	loaded.Settings.normalize()
@@ -304,6 +329,71 @@ func (s *Store) SetSend(in Send) error {
 	defer s.mu.Unlock()
 	s.data.Send = in
 	return s.saveLocked()
+}
+
+// SendTargets returns the saved send targets in display order.
+func (s *Store) SendTargets() []SendTarget {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]SendTarget{}, s.data.SendTargets...)
+}
+
+// SendTarget returns one send target.
+func (s *Store) SendTarget(id string) (SendTarget, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, t := range s.data.SendTargets {
+		if t.ID == id {
+			return t, true
+		}
+	}
+	return SendTarget{}, false
+}
+
+// SaveSendTarget creates (empty ID) or updates a send target. On an update,
+// an empty Key keeps the saved one.
+func (s *Store) SaveSendTarget(in SendTarget) (SendTarget, error) {
+	in.Label = strings.TrimSpace(in.Label)
+	if in.Label == "" {
+		in.Label = "My stream"
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if in.ID == "" {
+		if in.Key == "" {
+			return SendTarget{}, errors.New("enter the stream key")
+		}
+		in.ID = newID()
+		s.data.SendTargets = append(s.data.SendTargets, in)
+		return in, s.saveLocked()
+	}
+	for i := range s.data.SendTargets {
+		if s.data.SendTargets[i].ID == in.ID {
+			if in.Key == "" {
+				in.Key = s.data.SendTargets[i].Key
+			}
+			s.data.SendTargets[i] = in
+			return in, s.saveLocked()
+		}
+	}
+	return SendTarget{}, fmt.Errorf("send target %q no longer exists", in.ID)
+}
+
+// DeleteSendTarget removes a send target.
+func (s *Store) DeleteSendTarget(id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.data.SendTargets {
+		if s.data.SendTargets[i].ID == id {
+			s.data.SendTargets = append(s.data.SendTargets[:i], s.data.SendTargets[i+1:]...)
+			if s.data.Send.TargetID == id {
+				s.data.Send.TargetID = ""
+			}
+			return s.saveLocked()
+		}
+	}
+	return nil
 }
 
 func (s *Store) saveLocked() error {

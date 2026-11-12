@@ -1,6 +1,5 @@
 <script lang="ts">
   import Icon from './Icon.svelte'
-  import ThemeToggle from './ThemeToggle.svelte'
   import { isCustomSource, transportLabel, type PlayerState, type Stream } from './api'
 
   interface Props {
@@ -10,8 +9,9 @@
     onplay: (id: string) => void
     onedit: (stream: Stream) => void
     onadd: () => void
+    onfold: () => void
   }
-  let { streams, player, disabled, onplay, onedit, onadd }: Props = $props()
+  let { streams, player, disabled, onplay, onedit, onadd, onfold }: Props = $props()
 
   // The maintainer's own stream wears a little hearts flair in the list.
   const flaired = new Set(['marcymarcy'])
@@ -28,7 +28,7 @@
   }
 </script>
 
-<aside>
+<aside class="wing left streams">
   <header>
     <h2>Streams <span class="deco" aria-hidden="true">♡</span></h2>
     <button class="icon-btn add" onclick={onadd} aria-label="Add stream" title="Add stream">
@@ -68,102 +68,12 @@
     </ul>
   {/if}
 
-  <footer><ThemeToggle /></footer>
+  <footer>
+    <button class="icon-btn fold" onclick={onfold} aria-label="Hide streams" title="Hide">‹</button>
+  </footer>
 </aside>
 
 <style>
-  aside {
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    background: var(--gt-surface);
-    border-right: var(--gt-border-width) solid var(--gt-border);
-  }
-
-  /* The other place to drag the window by. */
-  header {
-    --wails-draggable: drag;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: var(--gt-space-4) var(--gt-space-3) var(--gt-space-2) var(--gt-space-4);
-  }
-
-  h2 {
-    font-size: var(--gt-text-h3);
-  }
-
-  .deco {
-    color: var(--gt-pink-text);
-  }
-
-  /* A small candy button. */
-  .add {
-    background: var(--gt-pink);
-    color: var(--gt-ink);
-    box-shadow: 0 3px 0 var(--gt-lip);
-    transition:
-      transform var(--gt-dur-base) var(--gt-ease-pop),
-      box-shadow var(--gt-dur-base) var(--gt-ease-pop);
-  }
-
-  .add:hover:not(:disabled) {
-    background: var(--gt-pink);
-    color: var(--gt-ink);
-  }
-
-  .add:active {
-    transform: translateY(3px);
-    box-shadow: 0 0 0 var(--gt-lip);
-  }
-
-  .add:focus-visible {
-    box-shadow: var(--gt-focus-ring);
-  }
-
-  ul {
-    flex: 1;
-    min-height: 0;
-    margin: 0;
-    padding: var(--gt-space-1) var(--gt-space-2) var(--gt-space-2);
-    list-style: none;
-    overflow-y: auto;
-  }
-
-  li {
-    position: relative;
-  }
-
-  li + li {
-    margin-top: 2px;
-  }
-
-  .row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    width: 100%;
-    padding: var(--gt-space-2) 40px var(--gt-space-2) var(--gt-space-3);
-    border: 0;
-    border-radius: var(--gt-radius-md);
-    background: transparent;
-    text-align: left;
-    transition: background var(--gt-dur-fast);
-  }
-
-  .row:hover:not(:disabled) {
-    background: var(--gt-surface-raised);
-  }
-
-  li.active .row {
-    background: var(--gt-surface-raised);
-    box-shadow: inset 4px 0 0 var(--gt-pink);
-  }
-
-  li.active .row:focus-visible {
-    box-shadow: var(--gt-focus-ring);
-  }
-
   .key {
     flex: none;
     display: grid;
@@ -175,23 +85,6 @@
     background: var(--gt-surface);
     color: var(--gt-text-muted);
     letter-spacing: 0;
-  }
-
-  .text {
-    display: grid;
-    min-width: 0;
-    flex: 1;
-  }
-
-  .label,
-  .detail {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .label {
-    font-weight: 700;
   }
 
   .name {
@@ -238,83 +131,5 @@
     20% {
       scale: 1.45;
     }
-  }
-
-  .detail {
-    color: var(--gt-text-muted);
-    font-size: 11.5px;
-  }
-
-  li[data-status='playing'] {
-    --status: var(--gt-mint);
-  }
-  li[data-status='connecting'] {
-    --status: var(--gt-aqua);
-  }
-  li[data-status='reconnecting'] {
-    --status: var(--gt-butter);
-  }
-  li[data-status='failed'] {
-    --status: var(--gt-coral-text);
-  }
-
-  /* Outlined so the pale fills still read on a pale row. */
-  .dot {
-    position: absolute;
-    top: 50%;
-    right: 14px;
-    translate: 0 -50%;
-    width: 12px;
-    height: 12px;
-    border: var(--gt-border-width) solid var(--gt-text);
-    border-radius: 50%;
-    background: var(--status);
-  }
-
-  li[data-status='connecting'] .dot,
-  li[data-status='reconnecting'] .dot {
-    animation: pulse 1.2s ease-in-out infinite;
-  }
-
-  .edit {
-    position: absolute;
-    top: 50%;
-    right: 6px;
-    transform: translateY(-50%);
-    opacity: 0;
-  }
-
-  .edit:hover:not(:disabled) {
-    background: var(--gt-surface);
-  }
-
-  li:hover .edit,
-  .edit:focus-visible {
-    opacity: 1;
-  }
-
-  /* The status dot gives way to the edit button on hover. */
-  li:hover .dot {
-    visibility: hidden;
-  }
-
-  /* Bottom-left corner of the app: the day/night switch. */
-  footer {
-    margin-top: auto;
-    padding: var(--gt-space-2);
-    font-size: var(--gt-text-body);
-    line-height: 1;
-  }
-
-  .empty {
-    display: grid;
-    gap: var(--gt-space-3);
-    justify-items: start;
-    padding: var(--gt-space-2) var(--gt-space-4) var(--gt-space-4);
-  }
-
-  .hint {
-    color: var(--gt-text-muted);
-    font-size: var(--gt-text-small);
   }
 </style>

@@ -14,9 +14,14 @@ pre-feed. Context: [use-case.md](use-case.md), [vrcdn.md](vrcdn.md).
 - Shows the outgoing level, the time on air, and reconnects by itself if the
   connection drops. If it never gets on air in three tries (a wrong key, for
   example) it stops and says why, rather than keep knocking.
-- Keeps the stream key encrypted with Windows data protection (DPAPI), so
-  only the same Windows account on the same PC can read it. The key goes in
-  through the Send tab and is never shown, logged or sent back to the UI.
+- Sends to a saved **send target**: a label, a stream key and a server,
+  kept in the "Send to" wing on the right. Clicking one chooses where Go
+  live sends; it can't be changed while on air.
+- Keeps each target's key encrypted with Windows data protection (DPAPI),
+  so only the same Windows account on the same PC can read it. The key goes
+  in through the target's dialog and is never shown, logged or sent back to
+  the UI. A key saved before there were targets becomes one called "My
+  stream".
 
 ## How it is built
 

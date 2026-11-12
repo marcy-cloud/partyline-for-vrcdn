@@ -2,6 +2,7 @@
   import type { Snippet } from 'svelte'
   import Icon from './Icon.svelte'
   import Sparkline from './Sparkline.svelte'
+  import ThemeToggle from './ThemeToggle.svelte'
   import WindowControls from './WindowControls.svelte'
   import { transports, type AudioDevice, type Levels, type PlayerState, type Settings, type Status, type Transport } from './api'
 
@@ -326,18 +327,26 @@
         </div>
       </section>
 
-      <footer class="mono">{engine}</footer>
       {/if}
+    </div>
+
+    <div class="foot">
+      <ThemeToggle />
+      <span class="mono engine">{engine}</span>
     </div>
   </div>
 </main>
 
 <style>
+  /* The window in the middle of the app; the wings attach to its sides. */
   main {
+    flex: 1;
+    align-self: stretch;
     min-width: 0;
     min-height: 0;
-    /* The extra right and bottom space is where the sticker shadow lands. */
-    padding: var(--gt-space-4) 21px 21px var(--gt-space-4);
+    /* Above the wings, so its sticker shadow falls across them. */
+    position: relative;
+    z-index: 1;
   }
 
   .window {
@@ -352,7 +361,7 @@
     flex-direction: column;
     gap: var(--gt-space-4);
     min-height: 0;
-    padding: var(--gt-space-4) 20px var(--gt-space-2);
+    padding: var(--gt-space-4) 20px 0;
     overflow-y: auto;
   }
 
@@ -781,11 +790,22 @@
     border-radius: var(--gt-radius-sm);
   }
 
-  footer {
-    margin-top: auto;
+  /* Bottom strip of the window: the day/night switch, and the engine. */
+  .foot {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--gt-space-3);
+    padding: 2px var(--gt-space-4) var(--gt-space-1) var(--gt-space-2);
+  }
+
+  .engine {
     color: var(--gt-text-faint);
     font-size: 11px;
-    min-height: 16px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   /* Missing libmpv */

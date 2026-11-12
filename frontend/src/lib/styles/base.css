@@ -296,6 +296,313 @@ select.input {
   background: color-mix(in oklab, var(--gt-white) 45%, transparent);
 }
 
+/* The wings: the stream list on the left of the window and the send targets
+   on the right. Shorter than the window, attached to its sides. */
+.wing {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  /* Keep in step with WING in App.svelte, which resizes the window. */
+  width: 248px;
+  height: calc(100% - 96px);
+  min-height: 0;
+  border: var(--gt-border-width) solid var(--gt-border-strong);
+  background: var(--gt-surface);
+}
+
+.wing.left {
+  border-right: 0;
+  border-radius: var(--gt-radius-lg) 0 0 var(--gt-radius-lg);
+}
+
+.wing.right {
+  border-left: 0;
+  border-radius: 0 var(--gt-radius-lg) var(--gt-radius-lg) 0;
+}
+
+.wing footer {
+  display: flex;
+  margin-top: auto;
+  padding: var(--gt-space-1) var(--gt-space-2);
+}
+
+.wing .fold {
+  font-size: var(--gt-text-h3);
+  line-height: 1;
+}
+
+/* A folded wing leaves this tab on the window's side to bring it back. */
+.wing-tab {
+  flex: none;
+  width: 22px;
+  height: 72px;
+  padding: 0;
+  border: var(--gt-border-width) solid var(--gt-border-strong);
+  background: var(--gt-surface);
+  color: var(--gt-text-muted);
+  font-size: var(--gt-text-h3);
+  line-height: 1;
+}
+
+.wing-tab.left {
+  border-right: 0;
+  border-radius: var(--gt-radius-md) 0 0 var(--gt-radius-md);
+}
+
+.wing-tab.right {
+  border-left: 0;
+  border-radius: 0 var(--gt-radius-md) var(--gt-radius-md) 0;
+}
+
+.wing-tab:hover {
+  background: var(--gt-surface-raised);
+  color: var(--gt-text);
+}
+
+
+/* The other place to drag the window by. */
+.wing header {
+  --wails-draggable: drag;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--gt-space-4) var(--gt-space-3) var(--gt-space-2) var(--gt-space-4);
+}
+
+.wing h2 {
+  font-size: var(--gt-text-h3);
+}
+
+.wing .deco {
+  color: var(--gt-pink-text);
+}
+
+/* A small candy button. */
+.wing .add {
+  background: var(--gt-pink);
+  color: var(--gt-ink);
+  box-shadow: 0 3px 0 var(--gt-lip);
+  transition:
+    transform var(--gt-dur-base) var(--gt-ease-pop),
+    box-shadow var(--gt-dur-base) var(--gt-ease-pop);
+}
+
+.wing .add:hover:not(:disabled)  {
+  background: var(--gt-pink);
+  color: var(--gt-ink);
+}
+
+.wing .add:active  {
+  transform: translateY(3px);
+  box-shadow: 0 0 0 var(--gt-lip);
+}
+
+.wing .add:focus-visible  {
+  box-shadow: var(--gt-focus-ring);
+}
+
+.wing ul {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: var(--gt-space-1) var(--gt-space-2) var(--gt-space-2);
+  list-style: none;
+  overflow-y: auto;
+}
+
+.wing li {
+  position: relative;
+}
+
+.wing li + li {
+  margin-top: 2px;
+}
+
+.wing .row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: var(--gt-space-2) 40px var(--gt-space-2) var(--gt-space-3);
+  border: 0;
+  border-radius: var(--gt-radius-md);
+  background: transparent;
+  text-align: left;
+  transition: background var(--gt-dur-fast);
+}
+
+.wing .row:hover:not(:disabled)  {
+  background: var(--gt-surface-raised);
+}
+
+.wing li.active .row {
+  background: var(--gt-surface-raised);
+  box-shadow: inset 4px 0 0 var(--gt-pink);
+}
+
+.wing li.active .row:focus-visible {
+  box-shadow: var(--gt-focus-ring);
+}
+
+.wing .text {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+}
+
+.wing .label,
+.wing .detail {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wing .label {
+  font-weight: 700;
+}
+
+.wing .detail {
+  color: var(--gt-text-muted);
+  font-size: 11.5px;
+}
+
+.wing li[data-status='playing'] {
+  --status: var(--gt-mint);
+}
+
+.wing li[data-status='connecting'] {
+  --status: var(--gt-aqua);
+}
+
+.wing li[data-status='reconnecting'] {
+  --status: var(--gt-butter);
+}
+
+.wing li[data-status='failed'] {
+  --status: var(--gt-coral-text);
+}
+
+/* Outlined so the pale fills still read on a pale row. */
+.wing .dot {
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  translate: 0 -50%;
+  width: 12px;
+  height: 12px;
+  border: var(--gt-border-width) solid var(--gt-text);
+  border-radius: 50%;
+  background: var(--status, var(--gt-mint));
+}
+
+.wing li[data-status='connecting'] .dot,
+.wing li[data-status='reconnecting'] .dot {
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.wing .edit {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  opacity: 0;
+}
+
+.wing .edit:hover:not(:disabled)  {
+  background: var(--gt-surface);
+}
+
+.wing li:hover .edit,
+.wing .edit:focus-visible {
+  opacity: 1;
+}
+
+/* The status dot gives way to the edit button on hover. */
+.wing li:hover .dot {
+  visibility: hidden;
+}
+
+.wing .empty {
+  display: grid;
+  gap: var(--gt-space-3);
+  justify-items: start;
+  padding: var(--gt-space-2) var(--gt-space-4) var(--gt-space-4);
+}
+
+.wing .hint {
+  color: var(--gt-text-muted);
+  font-size: var(--gt-text-small);
+}
+
+
+/* Dialogs (add or edit a stream, add or edit a send target). */
+
+dialog.window {
+  width: min(480px, calc(100vw - 48px));
+  padding: 0;
+  color: var(--gt-text);
+}
+
+dialog.window[open] {
+  animation: pop var(--gt-dur-slow) var(--gt-ease-pop);
+}
+
+dialog.window::backdrop {
+  background: color-mix(in oklab, var(--gt-bg) 75%, transparent);
+}
+
+@keyframes pop {
+  from {
+    opacity: 0;
+    scale: 0.9;
+  }
+}
+
+dialog.window h2 {
+  font-weight: 400;
+  text-transform: lowercase;
+}
+
+dialog.window form {
+  display: grid;
+  gap: var(--gt-space-4);
+  padding: 20px;
+}
+
+dialog.window em {
+  font-style: normal;
+  font-weight: 400;
+  color: var(--gt-text-faint);
+}
+
+dialog.window small {
+  min-height: 18px;
+  color: var(--gt-text-muted);
+  font-size: var(--gt-text-small);
+}
+
+dialog.window .error {
+  color: var(--gt-coral-text);
+  font-weight: 600;
+  user-select: text;
+}
+
+dialog.window .buttons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  /* Room for the candy buttons' bottom lip. */
+  padding-bottom: var(--gt-space-1);
+}
+
+dialog.window .spacer {
+  flex: 1;
+}
+
+dialog.window .last {
+  order: 1;
+}
+
 @keyframes pulse {
   50% {
     opacity: 0.3;

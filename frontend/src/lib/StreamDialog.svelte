@@ -161,50 +161,6 @@
 </dialog>
 
 <style>
-  dialog {
-    width: min(480px, calc(100vw - 48px));
-    padding: 0;
-    color: var(--gt-text);
-  }
-
-  dialog[open] {
-    animation: pop var(--gt-dur-slow) var(--gt-ease-pop);
-  }
-
-  dialog::backdrop {
-    background: color-mix(in oklab, var(--gt-bg) 75%, transparent);
-  }
-
-  @keyframes pop {
-    from {
-      opacity: 0;
-      scale: 0.9;
-    }
-  }
-
-  h2 {
-    font-weight: 400;
-    text-transform: lowercase;
-  }
-
-  form {
-    display: grid;
-    gap: var(--gt-space-4);
-    padding: 20px;
-  }
-
-  em {
-    font-style: normal;
-    font-weight: 400;
-    color: var(--gt-text-faint);
-  }
-
-  small {
-    min-height: 18px;
-    color: var(--gt-text-muted);
-    font-size: var(--gt-text-small);
-  }
-
   /* The Private switch, drawn like the ones on the main panel. */
   .private {
     display: flex;
@@ -254,27 +210,5 @@
 
   .private input:checked::before {
     translate: 16px 0;
-  }
-
-  .error {
-    color: var(--gt-coral-text);
-    font-weight: 600;
-    user-select: text;
-  }
-
-  .buttons {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    /* Room for the candy buttons' bottom lip. */
-    padding-bottom: var(--gt-space-1);
-  }
-
-  .spacer {
-    flex: 1;
-  }
-
-  .last {
-    order: 1;
   }
 </style>

@@ -35,7 +35,7 @@ export interface Bootstrap {
 }
 
 /**
- * SendInfo is everything the Send panel needs to draw itself.
+ * SendInfo is everything the Send side needs to draw itself.
  */
 export interface SendInfo {
     /**
@@ -43,7 +43,7 @@ export interface SendInfo {
      */
     "supported": boolean;
     "settings": SendSettings;
-    "hasKey": boolean;
+    "targets": SendTarget[] | null;
     "state": sender$0.State;
     "devices": sender$0.Device[] | null;
     "ingests": vrcdn$0.Ingest[] | null;
@@ -51,11 +51,25 @@ export interface SendInfo {
 }
 
 /**
- * SendSettings are the sender's choices as the UI sees them. The stream key
- * is not among them: it goes in through SetSendKey and never comes back out.
+ * SendSettings are the sender's choices as the UI sees them.
  */
 export interface SendSettings {
-    "ingest": string;
+    /**
+     * TargetID is the send target chosen.
+     */
+    "targetId": string;
     "device": string;
     "bitrateKbps": number;
+}
+
+/**
+ * SendTarget is a saved place to send to, as the UI sees it. Key only ever
+ * travels inwards: a newly typed key when saving, or "" to keep the saved
+ * one. It never comes back out.
+ */
+export interface SendTarget {
+    "id": string;
+    "label": string;
+    "ingest": string;
+    "key": string;
 }

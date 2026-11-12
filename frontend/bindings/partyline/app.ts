@@ -14,9 +14,6 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import * as sender$0 from "./internal/sender/models.js";
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore: Unused imports
 import * as store$0 from "./internal/store/models.js";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -28,6 +25,13 @@ import * as $models from "./models.js";
  */
 export function Bootstrap(): $CancellablePromise<$models.Bootstrap> {
     return $Call.ByID(1258932017);
+}
+
+/**
+ * DeleteSendTarget removes a send target and returns the remaining ones.
+ */
+export function DeleteSendTarget(id: string): $CancellablePromise<$models.SendTarget[] | null> {
+    return $Call.ByID(322287641, id);
 }
 
 /**
@@ -67,6 +71,14 @@ export function SaveSendSettings($in: $models.SendSettings): $CancellablePromise
 }
 
 /**
+ * SaveSendTarget creates (empty ID) or updates a send target. The key is
+ * protected so that only this Windows account can read it back.
+ */
+export function SaveSendTarget($in: $models.SendTarget): $CancellablePromise<$models.SendTarget> {
+    return $Call.ByID(4067823023, $in);
+}
+
+/**
  * SaveStream creates (empty ID) or updates a saved stream.
  * 
  * For a private stream, Source carries the key as typed and is protected
@@ -77,25 +89,10 @@ export function SaveStream($in: store$0.Stream): $CancellablePromise<store$0.Str
 }
 
 /**
- * SendDevices lists the inputs that can be sent right now.
- */
-export function SendDevices(): $CancellablePromise<sender$0.Device[] | null> {
-    return $Call.ByID(2166233178);
-}
-
-/**
- * SendInfo returns the sender's settings, state and choices.
+ * SendInfo returns the sender's settings, targets, state and choices.
  */
 export function SendInfo(): $CancellablePromise<$models.SendInfo> {
     return $Call.ByID(224905155);
-}
-
-/**
- * SetSendKey saves the stream key, protected so that only this Windows
- * account can read it back. An empty key forgets the saved one.
- */
-export function SetSendKey(key: string): $CancellablePromise<void> {
-    return $Call.ByID(4153917364, key);
 }
 
 /**
@@ -107,7 +104,7 @@ export function SetVolume(volume: number): $CancellablePromise<void> {
 }
 
 /**
- * StartSend goes live with the saved settings and key.
+ * StartSend goes live to the chosen target with the saved settings.
  */
 export function StartSend(): $CancellablePromise<void> {
     return $Call.ByID(1052991585);

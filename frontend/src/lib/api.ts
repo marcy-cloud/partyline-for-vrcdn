@@ -83,16 +83,27 @@ export interface SendState {
 export const sendOff: SendState = { status: 'off', message: '', attempt: 0, sinceMs: 0 }
 
 export interface SendSettings {
-  ingest: string
+  /** The send target chosen; '' when there is none. */
+  targetId: string
   device: string
   bitrateKbps: number
 }
+
+/** A saved place to send to. The key is never sent back from the backend. */
+export interface SendTarget {
+  id: string
+  label: string
+  ingest: string
+}
+
+/** A target on its way to be saved: with a newly typed key, or '' to keep the saved one. */
+export type SendTargetDraft = SendTarget & { key: string }
 
 export interface SendInfo {
   /** False where this build can't send; the Send tab is then hidden. */
   supported: boolean
   settings: SendSettings
-  hasKey: boolean
+  targets: SendTarget[]
   state: SendState
   devices: { id: string; name: string }[]
   ingests: { name: string; url: string }[]
@@ -150,8 +161,8 @@ export interface Api {
 
   sendInfo(): Promise<SendInfo>
   saveSendSettings(settings: SendSettings): Promise<SendSettings>
-  /** Saves the stream key; '' forgets it. The key never comes back out. */
-  setSendKey(key: string): Promise<void>
+  saveSendTarget(target: SendTargetDraft): Promise<SendTarget>
+  deleteSendTarget(id: string): Promise<SendTarget[]>
   startSend(): Promise<void>
   stopSend(): Promise<void>
   onSend(cb: (state: SendState) => void): void
@@ -179,10 +190,17 @@ const wails: Api = {
 
   sendInfo: async () => {
     const info = (await Backend.SendInfo()) as unknown as SendInfo
-    return { ...info, devices: info.devices ?? [], ingests: info.ingests ?? [], bitrates: info.bitrates ?? [] }
+    return {
+      ...info,
+      targets: info.targets ?? [],
+      devices: info.devices ?? [],
+      ingests: info.ingests ?? [],
+      bitrates: info.bitrates ?? [],
+    }
   },
   saveSendSettings: (s) => Backend.SaveSendSettings(s) as unknown as Promise<SendSettings>,
-  setSendKey: (key) => Backend.SetSendKey(key),
+  saveSendTarget: (t) => Backend.SaveSendTarget(t) as unknown as Promise<SendTarget>,
+  deleteSendTarget: async (id) => ((await Backend.DeleteSendTarget(id)) ?? []) as unknown as SendTarget[],
   startSend: () => Backend.StartSend(),
   stopSend: () => Backend.StopSend(),
   onSend: (cb) => void Events.On('send', (e) => cb(e.data as unknown as SendState)),

@@ -18,20 +18,30 @@ const (
 	eventSendLevels = "sendLevels" // meter.Levels, about 25 times a second while live
 )
 
-// SendSettings are the sender's choices as the UI sees them. The stream key
-// is not among them: it goes in through SetSendKey and never comes back out.
+// SendSettings are the sender's choices as the UI sees them.
 type SendSettings struct {
-	Ingest      string `json:"ingest"`
+	// TargetID is the send target chosen.
+	TargetID    string `json:"targetId"`
 	Device      string `json:"device"`
 	BitrateKbps int    `json:"bitrateKbps"`
 }
 
-// SendInfo is everything the Send panel needs to draw itself.
+// SendTarget is a saved place to send to, as the UI sees it. Key only ever
+// travels inwards: a newly typed key when saving, or "" to keep the saved
+// one. It never comes back out.
+type SendTarget struct {
+	ID     string `json:"id"`
+	Label  string `json:"label"`
+	Ingest string `json:"ingest"`
+	Key    string `json:"key"`
+}
+
+// SendInfo is everything the Send side needs to draw itself.
 type SendInfo struct {
 	// Supported is false where this build cannot send (see sender.Supported).
 	Supported bool            `json:"supported"`
 	Settings  SendSettings    `json:"settings"`
-	HasKey    bool            `json:"hasKey"`
+	Targets   []SendTarget    `json:"targets"`
 	State     sender.State    `json:"state"`
 	Devices   []sender.Device `json:"devices"`
 	Ingests   []vrcdn.Ingest  `json:"ingests"`
@@ -47,26 +57,49 @@ func (a *App) startSender() {
 
 func (a *App) sendSupported() bool { return a.send != nil && a.engineErr == "" && sender.Supported() }
 
+func knownIngest(url string) string {
+	if slices.ContainsFunc(vrcdn.Ingests, func(i vrcdn.Ingest) bool { return i.URL == url }) {
+		return url
+	}
+	return vrcdn.Ingests[0].URL
+}
+
 // sendSettings returns the saved choices with anything missing or no longer
 // valid replaced by its default.
-func sendSettings(saved store.Send) SendSettings {
-	out := SendSettings{Ingest: saved.Ingest, Device: saved.Device, BitrateKbps: saved.BitrateKbps}
-	if !slices.ContainsFunc(vrcdn.Ingests, func(i vrcdn.Ingest) bool { return i.URL == out.Ingest }) {
-		out.Ingest = vrcdn.Ingests[0].URL
-	}
+func (a *App) sendSettings() SendSettings {
+	saved := a.store.Send()
+	out := SendSettings{TargetID: saved.TargetID, Device: saved.Device, BitrateKbps: saved.BitrateKbps}
 	if !slices.Contains(sender.Bitrates, out.BitrateKbps) {
 		out.BitrateKbps = sender.Bitrates[0]
+	}
+	if _, ok := a.store.SendTarget(out.TargetID); !ok {
+		out.TargetID = ""
+		if targets := a.store.SendTargets(); len(targets) > 0 {
+			out.TargetID = targets[0].ID
+		}
 	}
 	return out
 }
 
-// SendInfo returns the sender's settings, state and choices.
+// publicTarget is a stored target without its key.
+func publicTarget(t store.SendTarget) SendTarget {
+	return SendTarget{ID: t.ID, Label: t.Label, Ingest: knownIngest(t.Ingest)}
+}
+
+func (a *App) publicTargets() []SendTarget {
+	out := []SendTarget{}
+	for _, t := range a.store.SendTargets() {
+		out = append(out, publicTarget(t))
+	}
+	return out
+}
+
+// SendInfo returns the sender's settings, targets, state and choices.
 func (a *App) SendInfo() SendInfo {
-	saved := a.store.Send()
 	info := SendInfo{
 		Supported: a.sendSupported(),
-		Settings:  sendSettings(saved),
-		HasKey:    saved.Key != "",
+		Settings:  a.sendSettings(),
+		Targets:   a.publicTargets(),
 		State:     sender.State{Status: sender.Off},
 		Devices:   []sender.Device{},
 		Ingests:   vrcdn.Ingests,
@@ -74,65 +107,63 @@ func (a *App) SendInfo() SendInfo {
 	}
 	if info.Supported {
 		info.State = a.send.State()
-		info.Devices = a.SendDevices()
+		info.Devices = sender.ListDevices()
 	}
 	return info
-}
-
-// SendDevices lists the inputs that can be sent right now.
-func (a *App) SendDevices() []sender.Device {
-	if !a.sendSupported() {
-		return []sender.Device{}
-	}
-	return sender.ListDevices()
 }
 
 // SaveSendSettings saves the sender's choices. They take effect the next
 // time a broadcast starts.
 func (a *App) SaveSendSettings(in SendSettings) (SendSettings, error) {
 	saved := a.store.Send()
-	saved.Ingest, saved.Device, saved.BitrateKbps = in.Ingest, in.Device, in.BitrateKbps
-	out := sendSettings(saved)
-	saved.Ingest, saved.BitrateKbps = out.Ingest, out.BitrateKbps
-	return out, a.store.SetSend(saved)
+	saved.TargetID, saved.Device, saved.BitrateKbps = in.TargetID, in.Device, in.BitrateKbps
+	err := a.store.SetSend(saved)
+	return a.sendSettings(), err
 }
 
-// SetSendKey saves the stream key, protected so that only this Windows
-// account can read it back. An empty key forgets the saved one.
-func (a *App) SetSendKey(key string) error {
-	key = strings.TrimSpace(key)
-	saved := a.store.Send()
-	if key == "" {
-		saved.Key = ""
-		return a.store.SetSend(saved)
+// SaveSendTarget creates (empty ID) or updates a send target. The key is
+// protected so that only this Windows account can read it back.
+func (a *App) SaveSendTarget(in SendTarget) (SendTarget, error) {
+	t := store.SendTarget{ID: in.ID, Label: in.Label, Ingest: knownIngest(in.Ingest)}
+	if key := strings.TrimSpace(in.Key); key != "" {
+		if strings.ContainsAny(key, " \t\r\n/") {
+			return SendTarget{}, errors.New("that doesn't look like a stream key: it has spaces or slashes in it")
+		}
+		protected, err := secret.Protect(key)
+		if err != nil {
+			return SendTarget{}, err
+		}
+		t.Key = protected
 	}
-	if strings.ContainsAny(key, " \t\r\n/") {
-		return errors.New("that doesn't look like a stream key: it has spaces or slashes in it")
-	}
-	protected, err := secret.Protect(key)
+	saved, err := a.store.SaveSendTarget(t)
 	if err != nil {
-		return err
+		return SendTarget{}, err
 	}
-	saved.Key = protected
-	return a.store.SetSend(saved)
+	return publicTarget(saved), nil
 }
 
-// StartSend goes live with the saved settings and key.
+// DeleteSendTarget removes a send target and returns the remaining ones.
+func (a *App) DeleteSendTarget(id string) ([]SendTarget, error) {
+	err := a.store.DeleteSendTarget(id)
+	return a.publicTargets(), err
+}
+
+// StartSend goes live to the chosen target with the saved settings.
 func (a *App) StartSend() error {
 	if !a.sendSupported() {
 		return errors.New("sending is not available in this build")
 	}
-	saved := a.store.Send()
-	if saved.Key == "" {
-		return errors.New("enter your stream key first")
+	settings := a.sendSettings()
+	target, ok := a.store.SendTarget(settings.TargetID)
+	if !ok {
+		return errors.New("add somewhere to send to first")
 	}
-	key, err := secret.Reveal(saved.Key)
+	key, err := secret.Reveal(target.Key)
 	if err != nil || key == "" {
-		return errors.New("the saved stream key can't be read on this PC; enter it again")
+		return errors.New("the saved stream key can't be read on this PC; edit the send target and enter it again")
 	}
-	settings := sendSettings(saved)
 	return a.send.Start(sender.Config{
-		Ingest:      settings.Ingest,
+		Ingest:      knownIngest(target.Ingest),
 		Key:         key,
 		Device:      settings.Device,
 		BitrateKbps: settings.BitrateKbps,

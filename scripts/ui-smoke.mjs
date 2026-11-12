@@ -2,8 +2,9 @@
 // WebView2's DevTools port open, then drives the UI the way a person would:
 // plays the first saved stream (muted, without saving the volume), switches
 // its connection to MPEG-TS and back, stops it, starts it again with the Play
-// button, looks at the Send tab (and goes live with the test tone if
-// PARTYLINE_TEST_KEY holds a stream key), opens the dialog and switches theme,
+// button, looks at the Send tab (and, if PARTYLINE_TEST_KEY holds a stream
+// key, saves a send target, goes live with the test tone and deletes the
+// target again), opens the dialog, folds a wing and switches theme,
 // saving a screenshot at each step.
 //
 //   go build -tags bundled_libmpv -o bin/dev.exe .
@@ -70,11 +71,11 @@ const snapshot = () => js(`JSON.stringify({
   buffer: document.querySelector('.buffer .value')?.innerText?.replace(/\\s+/g, ' ') ?? null,
   level: document.querySelector('.level')?.getAttribute('aria-label') ?? null,
   format: document.querySelector('.format')?.innerText ?? null,
-  rows: [...document.querySelectorAll('aside li')].map((li) => li.innerText.replace(/\\s+/g, ' ').trim()),
+  rows: [...document.querySelectorAll('.streams li')].map((li) => li.innerText.replace(/\\s+/g, ' ').trim()),
   flair: !!document.querySelector('.flair'),
   overflow: (() => { const b = document.querySelector('.window .body'); return b.scrollHeight - b.clientHeight })(),
   devices: document.querySelectorAll('.control select option').length,
-  engine: document.querySelector('footer')?.innerText ?? null,
+  engine: document.querySelector('.engine')?.innerText ?? null,
   callout: document.querySelector('.callout')?.innerText ?? null,
   fonts: [...document.fonts].filter((f) => f.status === 'loaded').map((f) => f.family).filter((v, i, a) => a.indexOf(v) === i),
 })`).then(JSON.parse)
@@ -89,9 +90,9 @@ try {
 
   // Mute before playing (applies without saving), then click the first stream.
   await js(`(() => { const s = document.querySelector('input[type=range]'); s.dataset.was = s.value; s.value = 0; s.dispatchEvent(new Event('input', { bubbles: true })) })()`)
-  const hasRow = await js(`!!document.querySelector('aside li .row')`)
+  const hasRow = await js(`!!document.querySelector('.streams li .row')`)
   if (hasRow) {
-    await js(`document.querySelector('aside li .row').click()`)
+    await js(`document.querySelector('.streams li .row').click()`)
     for (let i = 0; i < 16; i++) {
       await sleep(500)
       const s = await snapshot()
@@ -157,11 +158,17 @@ try {
     const testKey = process.env.PARTYLINE_TEST_KEY
     if (testKey) {
       const setValue = (selector, value, event) => js(`(() => { const el = document.querySelector(${JSON.stringify(selector)}); const proto = el instanceof HTMLSelectElement ? HTMLSelectElement.prototype : HTMLInputElement.prototype; Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, ${JSON.stringify(value)}); el.dispatchEvent(new Event(${JSON.stringify(event)}, { bubbles: true })) })()`)
+      const dialogButton = (re) => js(`[...document.querySelectorAll('dialog[open] .buttons .btn')].find((b) => ${re}.test(b.innerText.trim())).click()`)
+      // Save a send target with the key, through the wing and its dialog.
+      const targetsBefore = await js(`document.querySelectorAll('.targets li').length`)
+      await js(`document.querySelector('.targets .add').click()`); await sleep(500)
+      await setValue('dialog[open] input[type=password]', testKey, 'input')
+      await setValue('dialog[open] .field:nth-of-type(2) input', 'Smoke test target', 'input')
+      await dialogButton('/^Add$/'); await sleep(900)
+      console.log('send targets:', targetsBefore, '->', await js(`document.querySelectorAll('.targets li').length`), '| chosen:', await js(`document.querySelector('.targets li.active .label')?.innerText`))
       const inputWas = await js(`document.querySelector('.controls .control select').value`)
       await setValue('.controls .control select', 'test-tone', 'change')
-      await setValue('.key input', testKey, 'input')
-      await js(`document.querySelector('.key .btn').click()`)
-      await sleep(600)
+      await sleep(300)
       await js(`document.querySelector('.go-live').click()`)
       let on = null
       for (let i = 0; i < 16 && on?.badge !== 'On air'; i++) {
@@ -175,10 +182,12 @@ try {
       await js(`document.querySelector('.go-live').click()`)
       await sleep(800)
       console.log('after stop:', (await sendSnapshot()).badge)
-      await js(`[...document.querySelectorAll('.key .btn')].find((b) => /Forget/.test(b.innerText))?.click()`)
       await setValue('.controls .control select', inputWas, 'change')
-      await sleep(400)
-      console.log('key forgotten:', (await sendSnapshot()).goLive)
+      // Remove the target again, so the key is not left saved.
+      await js(`[...document.querySelectorAll('.targets li')].find((li) => /Smoke test target/.test(li.innerText)).querySelector('.edit').click()`); await sleep(500)
+      await dialogButton('/^Delete$/'); await sleep(300)
+      await dialogButton('/Really delete/'); await sleep(800)
+      console.log('send targets after cleanup:', await js(`document.querySelectorAll('.targets li').length`))
     }
     await js(`[...document.querySelectorAll('.tabs .tab')].find((b) => /now-playing/.test(b.innerText)).click()`)
     await sleep(300)
@@ -189,15 +198,23 @@ try {
   await sleep(700)
   await shot('smoke-dialog')
   await js(`document.querySelector('dialog button[aria-label="Close"]').click()`)
-  await js(`document.querySelector('aside footer button').click()`)
+  await js(`document.querySelector('.foot button').click()`)
   await sleep(400)
   // The window has no Windows frame: its own buttons must be there, and the
   // title bar must be what it is dragged by.
   console.log('window buttons:', await js(`[...document.querySelectorAll('.window .titlebar .chrome button')].map((b) => b.getAttribute('aria-label')).join(', ')`),
     '| title bar drag:', await js(`getComputedStyle(document.querySelector('.window .titlebar')).getPropertyValue('--wails-draggable').trim()`))
+  // The wings fold, and the window narrows and widens with them.
+  const width = () => js(`innerWidth`)
+  const wide = await width()
+  await js(`document.querySelector('.streams .fold').click()`); await sleep(900)
+  const leftFolded = await width()
+  await js(`document.querySelector('.wing-tab.left').click()`); await sleep(900)
+  console.log('fold left wing:', wide, '->', leftFolded, '-> back to', await width())
+
   console.log('theme after toggle:', await js(`document.documentElement.dataset.theme`))
   await shot('smoke-other-theme')
-  await js(`document.querySelector('aside footer button').click()`)
+  await js(`document.querySelector('.foot button').click()`)
 
   // Put the volume back the way it was (still without saving).
   await js(`(() => { const s = document.querySelector('input[type=range]'); s.value = s.dataset.was; s.dispatchEvent(new Event('input', { bubbles: true })) })()`)

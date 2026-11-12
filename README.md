@@ -23,7 +23,8 @@ else to install.
 - **One-click switching.** Click a stream, or press `1`–`9`, to cut to it.
 - **Send, too.** On Windows a Send tab pushes audio only from an input
   device to VRCDN (AAC, 48 kHz, up to 320 kbps, no video), so a DJ can feed
-  VJs and dancers without OBS. The stream key is stored encrypted.
+  VJs and dancers without OBS. Places to send to are saved in a wing on the
+  right, each with its stream key stored encrypted.
 - **Auto-reconnect.** Keeps retrying while a stream is offline and reconnects
   if it drops or stalls, so audio starts by itself when the performer goes
   live.

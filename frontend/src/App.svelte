@@ -5,6 +5,8 @@
   import Send from './lib/Send.svelte'
   import StreamDialog from './lib/StreamDialog.svelte'
   import StreamList from './lib/StreamList.svelte'
+  import TargetDialog from './lib/TargetDialog.svelte'
+  import TargetList from './lib/TargetList.svelte'
   import {
     connect,
     errorText,
@@ -20,6 +22,8 @@
     type SendInfo,
     type SendSettings,
     type SendState,
+    type SendTarget,
+    type SendTargetDraft,
     type Settings,
     type Stream,
     type Transport,
@@ -111,10 +115,56 @@
     if (saved && sendInfo) sendInfo = { ...sendInfo, settings: saved }
   }
 
-  async function setSendKey(key: string) {
+  // Send targets (the right wing).
+  let editingTarget = $state.raw<SendTarget | null>(null)
+
+  async function saveSendTarget(target: SendTargetDraft) {
     if (!api || !sendInfo) return
-    await api.setSendKey(key) // errors surface next to the field
-    sendInfo = { ...sendInfo, hasKey: key.trim() !== '' }
+    const saved = await api.saveSendTarget(target) // errors surface in the dialog
+    const targets = target.id ? sendInfo.targets.map((t) => (t.id === saved.id ? saved : t)) : [...sendInfo.targets, saved]
+    sendInfo = { ...sendInfo, targets }
+    editingTarget = null
+    // A first or newly added target is the one you meant to send to.
+    if (!target.id) saveSendSettings({ targetId: saved.id })
+  }
+
+  async function deleteSendTarget(id: string) {
+    if (!api || !sendInfo) return
+    const targets = await api.deleteSendTarget(id)
+    const settings = sendInfo.settings.targetId === id ? { ...sendInfo.settings, targetId: targets[0]?.id ?? '' } : sendInfo.settings
+    sendInfo = { ...sendInfo, targets, settings }
+    editingTarget = null
+  }
+
+  // The wings fold away, and the window narrows or widens to match so the
+  // middle stays where it is on screen.
+  const WING = 248 // .wing's width in base.css
+  const WING_TAB = 22
+  function savedWings(): { left: boolean; right: boolean } {
+    try {
+      return { left: true, right: true, ...JSON.parse(localStorage.getItem('wings') ?? '{}') }
+    } catch {
+      return { left: true, right: true } // storage can be unavailable
+    }
+  }
+  let wings = $state(savedWings())
+
+  async function resizeBy(delta: number, shiftLeft: boolean) {
+    if (!inWails() || maximised) return
+    const [size, pos] = await Promise.all([Window.Size(), Window.Position()])
+    if (shiftLeft) await Window.SetPosition(pos.x - delta, pos.y)
+    await Window.SetSize(size.width + delta, size.height)
+  }
+
+  function setWing(side: 'left' | 'right', open: boolean) {
+    if (wings[side] === open) return
+    wings[side] = open
+    try {
+      localStorage.setItem('wings', JSON.stringify(wings))
+    } catch {
+      // As above.
+    }
+    resizeBy((open ? 1 : -1) * (WING - WING_TAB), side === 'left')
   }
 
   function applyLevels(next: Levels) {
@@ -145,6 +195,12 @@
       if (boot.notice) notify(boot.notice)
       sendInfo = await api.sendInfo()
       applySend(sendInfo.state)
+      // The window opens sized for both wings; fold what was left folded.
+      const folded = (wings.left ? 0 : 1) + (wings.right && sendInfo.supported ? 0 : 1)
+      if (folded && inWails()) {
+        const size = await Window.Size()
+        await Window.SetSize(size.width - folded * (WING - WING_TAB) - (sendInfo.supported ? 0 : WING_TAB), size.height)
+      }
       if (new URLSearchParams(location.search).get('demo') === 'sending') view = 'send'
     } catch (e) {
       engineError = errorText(e)
@@ -242,7 +298,6 @@
       current={sendState}
       levels={sendLevels}
       onsettings={saveSendSettings}
-      onkey={setSendKey}
       onstart={() => call((a) => a.startSend())}
       onstop={() => call((a) => a.stopSend())}
       onrefresh={loadSendInfo}
@@ -251,8 +306,12 @@
 {/snippet}
 
 {#if loaded}
-  <div class="shell" class:maximised>
+  <div class="shell">
+    {#if !wings.left}
+      <button class="wing-tab left" onclick={() => setWing('left', true)} aria-label="Show streams" title="Streams">›</button>
+    {:else}
     <StreamList
+      onfold={() => setWing('left', false)}
       {streams}
       {player}
       disabled={!!engineError}
@@ -260,6 +319,7 @@
       onedit={(s) => (editing = s)}
       onadd={() => (editing = { ...blank })}
     />
+    {/if}
     <NowPlaying
       {player}
       {settings}
@@ -289,7 +349,36 @@
       onvolume={setVolume}
       onsettings={updateSettings}
     />
+    {#if sendInfo?.supported}
+      {#if wings.right}
+        <TargetList
+          targets={sendInfo.targets}
+          selectedId={sendInfo.settings.targetId}
+          ingests={sendInfo.ingests}
+          {onAir}
+          onselect={(id) => {
+            saveSendSettings({ targetId: id })
+            view = 'send'
+          }}
+          onedit={(t) => (editingTarget = t)}
+          onadd={() => (editingTarget = { id: '', label: '', ingest: sendInfo?.ingests[0]?.url ?? '' })}
+          onfold={() => setWing('right', false)}
+        />
+      {:else}
+        <button class="wing-tab right" onclick={() => setWing('right', true)} aria-label="Show send targets" title="Send to">‹</button>
+      {/if}
+    {/if}
   </div>
+
+  {#if sendInfo}
+    <TargetDialog
+      target={editingTarget}
+      ingests={sendInfo.ingests}
+      onsave={saveSendTarget}
+      ondelete={deleteSendTarget}
+      onclose={() => (editingTarget = null)}
+    />
+  {/if}
 
   <StreamDialog
     stream={editing}
@@ -309,21 +398,14 @@
 {/if}
 
 <style>
-  /* The edge of the app: the window behind it is see-through. */
+  /* The window in the middle with a wing on each side. Everything around
+     them is see-through: the app window itself has no frame or fill. */
   .shell {
-    display: grid;
-    grid-template-columns: 264px minmax(0, 1fr);
+    display: flex;
+    align-items: center;
     height: 100%;
-    border: var(--gt-border-width) solid var(--gt-border-strong);
-    border-radius: var(--gt-radius-lg);
-    background: var(--gt-bg);
-    overflow: hidden;
-  }
-
-  /* Filling the screen, corners and border would only leave gaps. */
-  .shell.maximised {
-    border: 0;
-    border-radius: 0;
+    /* Room for the middle window's sticker shadow. */
+    padding: 0 0 6px;
   }
 
   .toast {

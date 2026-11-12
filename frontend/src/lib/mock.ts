@@ -47,8 +47,11 @@ export function createMock(): Api {
 
   let send: SendInfo = {
     supported: true,
-    settings: { ingest: 'rtmp://ingest.vrcdn.live/live', device: 'line-in', bitrateKbps: 320 },
-    hasKey: demo === 'sending',
+    settings: { targetId: 't1', device: 'line-in', bitrateKbps: 320 },
+    targets: [
+      { id: 't1', label: 'My private feed', ingest: 'rtmp://ingest.vrcdn.live/live' },
+      { id: 't2', label: 'Club X guest key', ingest: 'rtmp://uk.ingest.vrcdn.live/live' },
+    ],
     state: sendOff,
     devices: [
       { id: 'line-in', name: 'Line In (DJ Mixer USB)' },
@@ -204,11 +207,21 @@ export function createMock(): Api {
       send = { ...send, settings: s }
       return s
     },
-    async setSendKey(key) {
-      send = { ...send, hasKey: key !== '' }
+    async saveSendTarget(t) {
+      if (!t.id && !t.key.trim()) throw new Error('enter the stream key')
+      const saved = { id: t.id || crypto.randomUUID(), label: t.label.trim() || 'My stream', ingest: t.ingest }
+      send = {
+        ...send,
+        targets: t.id ? send.targets.map((x) => (x.id === t.id ? saved : x)) : [...send.targets, saved],
+      }
+      return saved
+    },
+    async deleteSendTarget(id) {
+      send = { ...send, targets: send.targets.filter((x) => x.id !== id) }
+      return send.targets
     },
     async startSend() {
-      if (!send.hasKey) throw new Error('enter your stream key first')
+      if (!send.targets.some((t) => t.id === send.settings.targetId)) throw new Error('add somewhere to send to first')
       setSend({ ...sendOff, status: 'connecting' })
       sendTimers.push(
         window.setTimeout(() => {

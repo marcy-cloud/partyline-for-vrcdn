@@ -69,11 +69,13 @@ func main() {
 	})
 
 	window = app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title:     appTitle,
-		Width:     880,
-		Height:    620,
-		MinWidth:  720,
-		MinHeight: 480,
+		Title: appTitle,
+		// Sized for the middle window with both wings open; the UI narrows
+		// it when a wing is folded.
+		Width:     1122,
+		Height:    660,
+		MinWidth:  560,
+		MinHeight: 520,
 		// No Windows title bar: the app draws its own, with its own minimise,
 		// maximise and close buttons, and a rounded border around the lot.
 		// The window itself is see-through so the corners outside that
