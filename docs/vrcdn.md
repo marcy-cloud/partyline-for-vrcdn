@@ -155,6 +155,12 @@ On one stream, from one Windows PC, on 2026-11-10 and 2026-11-11:
   "RTSP is blocked" by RTSP alone.
 - The `vrcdn` demo stream plays over MPEG-TS and FLV but never answered over
   RTSP.
+- **RTSP can stop answering while the stream is up.** On 2026-11-11 (around
+  16:40 local) a live stream that had played over RTSP hours earlier, with
+  the same build, got no answer over RTSP on UDP or TCP, while MPEG-TS and
+  FLV played it normally. Port 554 accepted connections on all four edge
+  addresses. Cause unknown (VRCDN side or the route); it matches the wiki's
+  "RTSPT doesn't work, but MPEG-TS does".
 - A sender can produce audio-only AAC in FLV with the bundled libmpv; whether
   VRCDN accepts it is untested. See [sender.md](sender.md).
 
