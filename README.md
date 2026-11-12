@@ -143,6 +143,11 @@ The DevTools port is only available in development builds
 started this way uses its own single-instance lock, so the test can run
 while the player itself is open.
 
+The test process, and which streams to test against, is in
+[docs/testing.md](docs/testing.md). [docs/use-case.md](docs/use-case.md)
+explains who the app is for, and [docs/vrcdn.md](docs/vrcdn.md) summarises
+what VRCDN can do.
+
 ## How it is put together
 
 ```
@@ -154,6 +159,7 @@ internal/player        Controller: reconnect, stall detection, catch-up policy
 internal/libmpv        cgo-free binding to the libmpv client API (purego),
                        and unpacking of the built-in copy
 cmd/probe              headless test tool
+cmd/sendprobe          experiment: send audio only to VRCDN (docs/sender.md)
 tools/fetch-libmpv     downloads libmpv for Windows (its own Go module)
 scripts/package.ps1    builds the Windows release zip
 frontend/              Svelte 5 + TypeScript UI (look and theme: STYLE.md)

@@ -150,7 +150,13 @@ On one stream, from one Windows PC, on 2026-11-10 and 2026-11-11:
 - Queued audio in the player while playing: 0–21 ms over RTSP, 20–40 ms over
   MPEG-TS, and about 800 ms at start over FLV until dropped. This is the
   player's own queue, not the delay from the DJ.
-- An offline stream answers with a 404 (or 401).
+- An offline stream answers with a 404 (or 401) on the HTTP outputs. Over
+  RTSP it does not answer at all, so the player cannot tell "offline" from
+  "RTSP is blocked" by RTSP alone.
+- The `vrcdn` demo stream plays over MPEG-TS and FLV but never answered over
+  RTSP.
+- A sender can produce audio-only AAC in FLV with the bundled libmpv; whether
+  VRCDN accepts it is untested. See [sender.md](sender.md).
 
 ## What this means for PartyLine
 
@@ -163,4 +169,10 @@ On one stream, from one Windows PC, on 2026-11-10 and 2026-11-11:
 - **RTSP on port 554 being blocked is common enough to be in the wiki.** Our
   fallback goes UDP then TCP, both RTSP. A network that blocks RTSP entirely
   needs FLV or MPEG-TS, which the user has to pick by hand today.
-- **The `vrcdn` demo stream** can stand in for a live stream in manual tests.
+- **The `vrcdn` demo stream** stands in for a live stream in manual tests,
+  over MPEG-TS and FLV only. See [testing.md](testing.md).
+- **Offline should be detected over HTTP.** Because RTSP stays silent for an
+  offline stream, the player currently shows "No audio over UDP, trying TCP"
+  and then a timeout. Checking the stream's `.live.ts` URL would let it say
+  "offline" straight away, and would also tell us when RTSP is blocked but
+  the stream is up, so it could fall back to MPEG-TS by itself. Not built.
