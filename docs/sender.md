@@ -8,29 +8,41 @@ instead of setting up OBS. Not built; this records what we know. Context:
 
 With `cmd/sendprobe` and the libmpv that ships inside the exe:
 
-- **Audio-only encoding works.** A test tone encodes to AAC at 320 kbps,
-  48 kHz stereo, in an FLV with no video track (the FLV header's flags say
-  audio only), paced in real time.
+- **VRCDN accepts an audio-only stream.** A test tone sent to a private key
+  as AAC, 320 kbps, 48 kHz stereo, in FLV over RTMP with no video track,
+  went live about 3 seconds after sending started.
+- **Every output plays it.** PartyLine's probe played it over MPEG-TS, FLV,
+  RTSP on TCP and RTSP on UDP, with the same level on all four. The
+  player's buffer was 0–21 ms over RTSP and FLV, and 130–170 ms over
+  MPEG-TS.
+- **Sending ran in real time for 75 seconds** with no errors or warnings
+  from the encoder or the RTMP connection.
 - **Capture from an input device is available**: the build includes
   FFmpeg's DirectShow input (`av://dshow:audio=<device name>`).
 - **Capturing what the PC is playing ("loopback") is not available** through
   libmpv. That would need our own WASAPI capture code.
 
+So a sender does not need a video track, and can be built on the libmpv we
+already ship.
+
 ## Not tested yet
 
-- **Whether VRCDN accepts a stream with no video**, and whether its outputs
-  (RTSP especially) then play. This needs a stream key:
-
-  ```
-  bin\sendprobe.exe -key-file <file with the private stream key> -for 60s
-  bin\probe.exe -volume 0 -for 20s <private stream name>
-  ```
-
-  If audio-only is refused or does not play, the fallback is to add a tiny
-  static video track (a black frame, H.264, 1-second keyframes), which the
-  bundled libmpv can also produce.
+- **VRChat world video players** with an audio-only stream. PartyLine is
+  the intended listener, so this only matters if someone points a world
+  player at the DJ's pre-feed.
+- **VRCDN's control panel preview** with no video.
 - End-to-end delay of a PartyLine-sent stream compared with OBS.
-- Capturing from a real device, and behaviour when the upload drops.
+- Capturing from a real device, long runs, and behaviour when the upload
+  drops.
+
+To repeat the test:
+
+```
+bin\sendprobe.exe -key-file <file with the private stream key> -for 60s
+bin\probe.exe -volume 0 -for 10s <private stream name>
+```
+
+A private stream's name is its key, so treat both as secret.
 
 ## Which AAC encoder
 

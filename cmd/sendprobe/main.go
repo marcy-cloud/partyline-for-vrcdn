@@ -20,9 +20,10 @@ import (
 	"partyline/internal/libmpv"
 )
 
-// A 440 Hz tone at -12 dBFS, paced in real time (lavfi would otherwise
-// produce it as fast as the encoder can take it).
-const testTone = "av://lavfi:sine=frequency=440:sample_rate=48000,volume=0.25,aformat=channel_layouts=stereo,arealtime"
+// A 440 Hz tone that peaks at about -12 dBFS on both channels, paced in real
+// time (lavfi would otherwise produce it as fast as the encoder can take
+// it). lavfi's sine is -18 dB and loses 3 dB going from mono to stereo.
+const testTone = "av://lavfi:sine=frequency=440:sample_rate=48000,volume=9dB,aformat=channel_layouts=stereo,arealtime"
 
 func main() {
 	input := flag.String("input", testTone, "what to send: an mpv URL such as av://dshow:audio=<device>")

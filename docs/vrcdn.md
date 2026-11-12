@@ -128,9 +128,8 @@ Page: <https://wiki.vrcdn.live/en/stream/NetworkRules>
 
 ## Not in the wiki
 
-- **Audio-only streams.** Nothing says whether a stream with no video track
-  is accepted or plays. This is the main open question for a PartyLine
-  sender.
+- **Audio-only streams.** The wiki says nothing, but they work; see "From
+  our own testing".
 - **Audio codecs.** AAC is implied by the OBS settings; nothing is said about
   Opus or MP3.
 - **Stated latency figures** for any output.
@@ -180,8 +179,9 @@ On one stream, from one Windows PC, on 2026-11-10 and 2026-11-11:
   time, and RTSP had worked earlier from another network, so the local
   network is the likely cause (public Wi-Fi often filters RTSP). Not
   confirmed. It matches the wiki's "RTSPT doesn't work, but MPEG-TS does".
-- A sender can produce audio-only AAC in FLV with the bundled libmpv; whether
-  VRCDN accepts it is untested. See [sender.md](sender.md).
+- **VRCDN accepts audio-only streams** (AAC in FLV over RTMP, no video
+  track), and serves them on RTSP, FLV and MPEG-TS. See
+  [sender.md](sender.md).
 
 ## What this means for PartyLine
 
@@ -189,8 +189,7 @@ On one stream, from one Windows PC, on 2026-11-10 and 2026-11-11:
   and the stream name, so it is a secret: avoid showing it in screenshots,
   logs or the window title.
 - **A sender has clear targets**: RTMP to `ingest.vrcdn.live` or a regional
-  ingest, AAC at 48 kHz, 320 kbps or less. Whether it can skip video is
-  unknown and needs a test.
+  ingest, AAC at 48 kHz, 320 kbps or less, and no video needed.
 - **RTSP on port 554 being blocked is common enough to be in the wiki.** Our
   fallback goes UDP then TCP, both RTSP. A network that blocks RTSP entirely
   needs FLV or MPEG-TS, which the user has to pick by hand today.
