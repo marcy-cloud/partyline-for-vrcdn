@@ -159,8 +159,10 @@ On one stream, from one Windows PC, on 2026-11-10 and 2026-11-11:
   16:40 local) a live stream that had played over RTSP hours earlier, with
   the same build, got no answer over RTSP on UDP or TCP, while MPEG-TS and
   FLV played it normally. Port 554 accepted connections on all four edge
-  addresses. Cause unknown (VRCDN side or the route); it matches the wiki's
-  "RTSPT doesn't work, but MPEG-TS does".
+  addresses. The PC was on coffee-shop Wi-Fi with Tailscale running at the
+  time, and RTSP had worked earlier from another network, so the local
+  network is the likely cause (public Wi-Fi often filters RTSP). Not
+  confirmed. It matches the wiki's "RTSPT doesn't work, but MPEG-TS does".
 - A sender can produce audio-only AAC in FLV with the bundled libmpv; whether
   VRCDN accepts it is untested. See [sender.md](sender.md).
 
