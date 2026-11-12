@@ -3,6 +3,7 @@ package player
 import (
 	"errors"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -49,6 +50,14 @@ func (f *fakeEngine) Events() <-chan Event                 { return f.events }
 func (f *fakeEngine) Describe() string                     { return "fake" }
 func (f *fakeEngine) Close()                               {}
 
+func (f *fakeEngine) lastURL() string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if len(f.loads) == 0 {
+		return ""
+	}
+	return f.loads[len(f.loads)-1]
+}
 func (f *fakeEngine) loadCount() int { f.mu.Lock(); defer f.mu.Unlock(); return len(f.loads) }
 func (f *fakeEngine) lastVia() string {
 	f.mu.Lock()
@@ -622,4 +631,150 @@ func TestLevelsAreForwardedWhilePlaying(t *testing.T) {
 		t.Errorf("levels %+v arrived after stop", l)
 	default:
 	}
+}
+
+// The default RTSP setting on a VRCDN stream: UDP, TCP, then MPEG-TS.
+var withFallback = Target{
+	StreamID: "a", Label: "DJ A", URL: "rtsp://x/a", RTSPTransports: []string{"udp", "tcp"},
+	FallbackURL: "https://x/a.live.ts", LiveCheckURL: "https://x/a.live.ts",
+}
+
+func TestFallsBackToMPEGTSWhenRTSPGetsNoResponse(t *testing.T) {
+	tuning := testTuning()
+	tuning.FallbackAfter = 30 * time.Millisecond
+	c, f := start(t, defaultOpts, tuning)
+	c.Play(withFallback)
+
+	waitFor(t, "HTTP attempt", func() bool { return c.State().Via == ViaHTTP })
+	if f.loadCount() != 3 || f.lastURL() != withFallback.FallbackURL || f.lastVia() != "" {
+		t.Fatalf("after %d loads the engine has %q (rtsp transport %q)", f.loadCount(), f.lastURL(), f.lastVia())
+	}
+	st := c.State()
+	if st.Status != Connecting || st.Attempt != 0 || st.Message != "No response over TCP, trying MPEG-TS" || st.URL != withFallback.FallbackURL {
+		t.Errorf("state during fallback = %+v", st)
+	}
+
+	// It is the last way in: no further fallback, just the connect timeout.
+	time.Sleep(3 * tuning.FallbackAfter)
+	if f.loadCount() != 3 {
+		t.Errorf("loads = %d after the last fallback", f.loadCount())
+	}
+	f.started()
+	if st := waitStatus(t, c, Playing); st.Via != ViaHTTP {
+		t.Errorf("playing via %q", st.Via)
+	}
+
+	// The network filters RTSP, so the next stream goes straight to HTTP...
+	other := withFallback
+	other.StreamID, other.URL, other.FallbackURL = "b", "rtsp://x/b", "https://x/b.live.ts"
+	c.Play(other)
+	if f.lastURL() != other.FallbackURL {
+		t.Errorf("next stream loaded %q, want its HTTP fallback straight away", f.lastURL())
+	}
+	// ...but a stream pinned to TCP is left alone.
+	c.Play(djA)
+	if f.lastURL() != djA.URL || f.lastVia() != "tcp" {
+		t.Errorf("pinned stream loaded %q via %q", f.lastURL(), f.lastVia())
+	}
+}
+
+func TestLearnedFallbackExpires(t *testing.T) {
+	tuning := testTuning()
+	tuning.FallbackAfter = 20 * time.Millisecond
+	tuning.RelearnAfter = 150 * time.Millisecond
+	c, f := start(t, defaultOpts, tuning)
+	c.Play(udpFirstA)
+	waitFor(t, "TCP attempt", func() bool { return c.State().Via == "tcp" })
+	f.started()
+	waitStatus(t, c, Playing)
+
+	c.Play(udpFirstB)
+	if f.lastVia() != "tcp" {
+		t.Fatalf("straight after a fallback the next stream used %q, want tcp", f.lastVia())
+	}
+	time.Sleep(2 * tuning.RelearnAfter)
+	c.Play(udpFirstA)
+	if f.lastVia() != "udp" {
+		t.Errorf("after the fallback expired the stream used %q, want udp again", f.lastVia())
+	}
+}
+
+// An offline stream is reported at once from the HTTP check, instead of
+// sitting through every RTSP wait; and it is never mistaken for RTSP being
+// blocked.
+func TestOfflineIsDetectedByTheLiveCheck(t *testing.T) {
+	var offline atomic.Bool
+	offline.Store(true)
+	tuning := testTuning() // FallbackAfter is far away
+	tuning.Offline = func(url string) bool {
+		if url != withFallback.LiveCheckURL {
+			t.Errorf("checked %q", url)
+		}
+		return offline.Load()
+	}
+	c, f := start(t, defaultOpts, tuning)
+	c.Play(withFallback)
+
+	st := waitStatus(t, c, Reconnecting)
+	if st.Message != offlineMessage || f.stopCount() == 0 {
+		t.Errorf("state = %+v, stops = %d", st, f.stopCount())
+	}
+	// Retries start from the top again: nothing was learned about the network.
+	waitFor(t, "retry", func() bool { return f.loadCount() >= 2 })
+	if f.lastVia() != "udp" {
+		t.Errorf("retry used %q, want udp", f.lastVia())
+	}
+
+	// The DJ goes live.
+	offline.Store(false)
+	// Each retry now finds it live and waits for audio, which then arrives.
+	waitFor(t, "playing after going live", func() bool {
+		f.started()
+		time.Sleep(5 * time.Millisecond)
+		return c.State().Status == Playing
+	})
+	if st := waitStatus(t, c, Playing); st.Via != "udp" {
+		t.Errorf("playing via %q, want udp", st.Via)
+	}
+}
+
+func TestLiveCheckForAReplacedStreamIsIgnored(t *testing.T) {
+	release := make(chan struct{})
+	tuning := testTuning()
+	tuning.Offline = func(url string) bool {
+		if url == withFallback.LiveCheckURL {
+			<-release // answers late, after the user has moved on
+			return true
+		}
+		return false
+	}
+	c, f := start(t, defaultOpts, tuning)
+	c.Play(withFallback)
+	c.Play(djB)
+	f.started()
+	waitStatus(t, c, Playing)
+	close(release)
+	time.Sleep(50 * time.Millisecond)
+	if st := c.State(); st.Status != Playing || st.StreamID != "b" {
+		t.Errorf("a late check for the old stream changed the state: %+v", st)
+	}
+}
+
+// VRCDN answers "offline" slowly, about when the first fallback is due. The
+// fallback waits for the answer, so the user sees "offline", not a detour.
+func TestFallbackWaitsForTheLiveCheck(t *testing.T) {
+	answer := make(chan bool)
+	tuning := testTuning()
+	tuning.FallbackAfter = 30 * time.Millisecond
+	tuning.Offline = func(string) bool { return <-answer }
+	c, f := start(t, defaultOpts, tuning)
+	c.Play(withFallback)
+
+	time.Sleep(4 * tuning.FallbackAfter)
+	if f.loadCount() != 1 || c.State().Via != "udp" {
+		t.Fatalf("fell back before the live check answered: %d loads, via %q", f.loadCount(), c.State().Via)
+	}
+	answer <- false // live after all: now the fallback may go ahead
+	waitFor(t, "TCP attempt", func() bool { return c.State().Via == "tcp" })
+	c.Stop()
 }

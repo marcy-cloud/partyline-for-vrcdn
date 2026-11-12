@@ -58,7 +58,13 @@ func main() {
 		fmt.Fprintf(os.Stderr, "error: unknown transport %q\n", *transport)
 		os.Exit(2)
 	}
-	target := player.Target{Label: src.Display(), URL: src.URL(tr), RTSPTransports: src.RTSPTransports(tr)}
+	target := player.Target{
+		Label:          src.Display(),
+		URL:            src.URL(tr),
+		RTSPTransports: src.RTSPTransports(tr),
+		FallbackURL:    src.FallbackURL(tr),
+		LiveCheckURL:   src.LiveCheckURL(),
+	}
 
 	_ = engine.SetAudioDevice(*device)
 	_ = engine.SetVolume(*volume)

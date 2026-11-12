@@ -37,8 +37,9 @@ type State struct {
 	// SinceMs is when audio started (Unix ms), or 0.
 	SinceMs int64      `json:"sinceMs"`
 	Info    StreamInfo `json:"info"`
-	// Via is the RTSP transport in use ("udp" or "tcp"), or "" for streams
-	// that aren't RTSP.
+	// Via is how the stream is being pulled when there was a choice: the
+	// RTSP transport ("udp" or "tcp"), or ViaHTTP after falling back from
+	// RTSP. "" for streams with only one way in.
 	Via string `json:"via"`
 }
 
@@ -50,7 +51,17 @@ type Target struct {
 	// RTSPTransports lists the RTSP transports to try, in order ("udp",
 	// "tcp"). Empty for streams that aren't RTSP.
 	RTSPTransports []string
+	// FallbackURL, if set, is the same stream over HTTP (MPEG-TS), tried
+	// last when no RTSP transport gets a response: some networks filter
+	// RTSP altogether.
+	FallbackURL string
+	// LiveCheckURL, if set, is an HTTP URL that says at once whether the
+	// stream is offline, which RTSP does not.
+	LiveCheckURL string
 }
+
+// ViaHTTP is State.Via while playing a Target's FallbackURL.
+const ViaHTTP = "mpeg-ts"
 
 // Options are the user-tunable policies.
 type Options struct {
@@ -69,9 +80,16 @@ type Tuning struct {
 	// ConnectTimeout is how long a load may take to produce audio.
 	ConnectTimeout time.Duration
 	// FallbackAfter is how long a load may take to produce audio before the
-	// next RTSP transport is tried, when there is one. UDP that a router
-	// drops connects fine and then stays silent, so this is the only tell.
+	// next way in is tried, when there is one. UDP that a router drops
+	// connects fine and then nothing arrives, so this is the only tell.
 	FallbackAfter time.Duration
+	// RelearnAfter is how long a learned fallback is trusted before the
+	// first choice is tried again. Zero means until the app restarts.
+	RelearnAfter time.Duration
+	// Offline reports whether the stream behind a LiveCheckURL is offline.
+	// It runs off the controller goroutine and may block. Nil disables the
+	// check.
+	Offline func(url string) bool
 	// StallTimeout is how long the position may stand still while playing.
 	StallTimeout time.Duration
 	// CatchUpSustain is how long the buffer must stay over the threshold
@@ -89,6 +107,8 @@ func DefaultTuning() Tuning {
 		},
 		ConnectTimeout: 12 * time.Second,
 		FallbackAfter:  4 * time.Second,
+		RelearnAfter:   10 * time.Minute,
+		Offline:        HTTPOffline,
 		StallTimeout:   4 * time.Second,
 		CatchUpSustain: time.Second,
 		CatchUpSpeed:   1.1,
@@ -121,17 +141,29 @@ type Controller struct {
 	retry        <-chan time.Time
 	connectLimit <-chan time.Time
 	fallback     <-chan time.Time
-	// transport indexes target.RTSPTransports: the one in use.
+	// transport is which of the target's ways in is in use (see route).
 	transport int
-	// learned is how far down that list a fallback has had to go. Whether
-	// UDP gets through is a property of the network, not of one stream, so
-	// later streams start there instead of waiting out the same failure.
-	learned      int
+	// learned is how far down that list a fallback has had to go. What gets
+	// through is a property of the network, not of one stream, so later
+	// streams start there instead of waiting out the same failure.
+	learned   int
+	learnedAt time.Time
+	// gen counts connection cycles, so a live check that comes back after
+	// the stream was switched or stopped is ignored.
+	gen     int
+	checked chan liveCheck
+	// checking is true while this cycle's live check is still out.
+	checking     bool
 	lastPos      float64
 	lastProgress time.Time
 	overSince    time.Time
 	// fresh is true from a stream starting until its first buffer reading.
 	fresh bool
+}
+
+type liveCheck struct {
+	gen     int
+	offline bool
 }
 
 // Hooks are optional callbacks, invoked from the controller goroutine.
@@ -148,13 +180,14 @@ type Hooks struct {
 // NewController starts a controller driving engine.
 func NewController(engine Engine, opts Options, tuning Tuning, hooks Hooks) *Controller {
 	c := &Controller{
-		engine: engine,
-		tuning: tuning,
-		hooks:  hooks,
-		cmds:   make(chan func()),
-		done:   make(chan struct{}),
-		opts:   opts,
-		state:  State{Status: Idle, BufferMs: -1},
+		engine:  engine,
+		tuning:  tuning,
+		hooks:   hooks,
+		cmds:    make(chan func()),
+		done:    make(chan struct{}),
+		checked: make(chan liveCheck),
+		opts:    opts,
+		state:   State{Status: Idle, BufferMs: -1},
 	}
 	c.snapshot = c.state
 	c.wg.Add(1)
@@ -227,7 +260,17 @@ func (c *Controller) loop() {
 			c.handle(ev)
 		case <-c.retry:
 			c.retry = nil
-			c.load()
+			c.connect()
+		case r := <-c.checked:
+			if r.gen != c.gen {
+				break
+			}
+			c.checking = false
+			// Offline beats waiting: RTSP would just sit there.
+			if r.offline && c.loading {
+				_ = c.engine.Stop()
+				c.lost(offlineMessage)
+			}
 		case <-c.connectLimit:
 			c.connectLimit = nil
 			if c.loading {
@@ -236,7 +279,14 @@ func (c *Controller) loop() {
 			}
 		case <-c.fallback:
 			c.fallback = nil
-			if c.loading {
+			switch {
+			case !c.loading:
+			case c.checking:
+				// VRCDN takes about as long to say "offline" as we wait
+				// for audio. Hold on for the answer, so an offline stream
+				// isn't first reported as a blocked connection.
+				c.fallback = time.After(c.tuning.FallbackAfter / 8)
+			default:
 				c.fallBack()
 			}
 		case <-c.done:
@@ -267,11 +317,57 @@ func (c *Controller) play(t Target) {
 		URL:      t.URL,
 		BufferMs: -1,
 	}
-	c.transport = max(min(c.learned, len(t.RTSPTransports)-1), 0)
+	if after := c.tuning.RelearnAfter; after > 0 && time.Since(c.learnedAt) > after {
+		c.learned = 0
+	}
+	c.transport = min(c.learned, c.routes()-1)
+	c.connect()
+}
+
+// routes is how many ways in the current target has: each RTSP transport
+// (or the one plain URL), then the HTTP fallback if there is one.
+func (c *Controller) routes() int {
+	n := max(len(c.target.RTSPTransports), 1)
+	if c.target.FallbackURL != "" {
+		n++
+	}
+	return n
+}
+
+// route returns way in number i: what to load and what to call it.
+func (c *Controller) route(i int) (url, rtspTransport, via string) {
+	t := c.target
+	switch {
+	case i < len(t.RTSPTransports):
+		return t.URL, t.RTSPTransports[i], t.RTSPTransports[i]
+	case i == 0:
+		return t.URL, "", ""
+	}
+	return t.FallbackURL, "", ViaHTTP
+}
+
+// connect starts a connection cycle: the load, and beside it a check of
+// whether the stream is live at all.
+func (c *Controller) connect() {
+	if c.target == nil {
+		return
+	}
+	c.gen++
+	c.checking = false
+	if url, offline := c.target.LiveCheckURL, c.tuning.Offline; url != "" && offline != nil {
+		c.checking = true
+		gen := c.gen
+		go func() {
+			select {
+			case c.checked <- liveCheck{gen: gen, offline: offline(url)}:
+			case <-c.done:
+			}
+		}()
+	}
 	c.load()
 }
 
-// load (re)starts the current target.
+// load (re)starts the current target on its current way in.
 func (c *Controller) load() {
 	if c.target == nil {
 		return
@@ -281,13 +377,11 @@ func (c *Controller) load() {
 	c.state.BufferMs = -1
 	c.state.SinceMs = 0
 
-	transports := c.target.RTSPTransports
-	c.state.Via = ""
-	if len(transports) > 0 {
-		c.state.Via = transports[c.transport]
-	}
+	url, rtspTransport, via := c.route(c.transport)
+	c.state.URL = url
+	c.state.Via = via
 
-	entry, err := c.engine.Load(c.target.URL, c.state.Via)
+	entry, err := c.engine.Load(url, rtspTransport)
 	if err != nil {
 		c.loading = false
 		c.lost(err.Error())
@@ -303,13 +397,13 @@ func (c *Controller) load() {
 }
 
 func (c *Controller) canFallBack() bool {
-	return c.target != nil && c.transport < len(c.target.RTSPTransports)-1
+	return c.target != nil && c.transport < c.routes()-1
 }
 
-// fallBack restarts the current attempt on the next RTSP transport. It is
-// not a reconnect: the attempt count and status stay as they are.
+// fallBack restarts the current attempt on the next way in. It is not a
+// reconnect: the attempt count and status stay as they are.
 func (c *Controller) fallBack() {
-	from := c.target.RTSPTransports[c.transport]
+	from := c.state.Via
 	c.transport++
 	c.load()
 	if c.state.Status == Connecting && c.loading {
@@ -331,6 +425,8 @@ func (c *Controller) stop() {
 	c.retry = nil
 	c.connectLimit = nil
 	c.fallback = nil
+	c.gen++
+	c.checking = false
 	c.endCatchUp()
 	_ = c.engine.Stop()
 	c.state = State{Status: Idle, BufferMs: -1}
@@ -345,7 +441,7 @@ func (c *Controller) resync() {
 		_ = c.engine.DropBuffers()
 	case !c.loading:
 		// Waiting out a backoff: try again right now.
-		c.load()
+		c.connect()
 	}
 }
 
@@ -375,7 +471,9 @@ func (c *Controller) handle(ev Event) {
 		c.loading = false
 		c.connectLimit = nil
 		c.fallback = nil
-		c.learned = max(c.learned, c.transport)
+		if c.transport > c.learned {
+			c.learned, c.learnedAt = c.transport, time.Now()
+		}
 		if c.state.Status != Playing {
 			c.state.SinceMs = time.Now().UnixMilli()
 		}
@@ -520,6 +618,8 @@ func (c *Controller) fail(msg string) {
 	c.state.Attempt = 0
 }
 
+const offlineMessage = "Stream is offline or doesn't exist"
+
 // explain turns engine failure text into something a VJ can act on.
 func explain(detail string) string {
 	low := strings.ToLower(detail)
@@ -528,7 +628,7 @@ func explain(detail string) string {
 		return "Connection lost"
 	case strings.Contains(low, "401"), strings.Contains(low, "404"),
 		strings.Contains(low, "not found"), strings.Contains(low, "unauthorized"):
-		return "Stream is offline or doesn't exist"
+		return offlineMessage
 	case strings.Contains(low, "connection refused"), strings.Contains(low, "network is unreachable"),
 		strings.Contains(low, "failed to resolve"), strings.Contains(low, "name or service not known"):
 		return "Can't reach the server"

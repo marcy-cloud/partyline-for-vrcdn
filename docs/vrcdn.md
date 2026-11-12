@@ -150,7 +150,8 @@ On one stream, from one Windows PC, on 2026-11-10 and 2026-11-11:
 - Queued audio in the player while playing: 0–21 ms over RTSP, 20–40 ms over
   MPEG-TS, and about 800 ms at start over FLV until dropped. This is the
   player's own queue, not the delay from the DJ.
-- An offline stream answers with a 404 (or 401) on the HTTP outputs. Over
+- An offline or nonexistent stream answers 401 on the HTTP outputs, after
+  about 4 seconds (404 has also been seen). Over
   RTSP it does not answer at all, so the player cannot tell "offline" from
   "RTSP is blocked" by RTSP alone.
 - The `vrcdn` demo stream plays over MPEG-TS, FLV and RTSP.
@@ -195,8 +196,9 @@ On one stream, from one Windows PC, on 2026-11-10 and 2026-11-11:
   needs FLV or MPEG-TS, which the user has to pick by hand today.
 - **The `vrcdn` demo stream** stands in for a live stream in manual tests.
   See [testing.md](testing.md).
-- **Offline should be detected over HTTP.** Because RTSP stays silent for an
-  offline stream, the player currently shows "No response over UDP, trying TCP"
-  and then a timeout. Checking the stream's `.live.ts` URL would let it say
-  "offline" straight away, and would also tell us when RTSP is blocked but
-  the stream is up, so it could fall back to MPEG-TS by itself. Not built.
+- **Offline is detected over HTTP** (built 2026-11-11). Beside every
+  connection attempt the player requests the stream's `.live.ts` URL. A 401
+  or 404 means offline. VRCDN takes about 4 seconds to give that answer and
+  about 1 second to start a live stream, so the first fallback waits for it.
+- **The default setting falls back to MPEG-TS** when RTSP gets no response
+  on UDP or TCP. This is run-time only; the saved connection is not changed.

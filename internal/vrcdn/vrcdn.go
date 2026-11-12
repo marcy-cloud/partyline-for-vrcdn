@@ -157,6 +157,26 @@ func (s Source) Display() string {
 	return s.Name
 }
 
+// FallbackURL returns the URL to play when RTSP gets no response at all: the
+// same stream as MPEG-TS over HTTPS, which passes networks that filter RTSP.
+// Only the default RTSP setting falls back; a stream pinned to a transport
+// stays on it. It is "" when there is no fallback.
+func (s Source) FallbackURL(t Transport) string {
+	if s.Custom != "" || t != RTSP {
+		return ""
+	}
+	return s.URL(MPEGTS)
+}
+
+// LiveCheckURL returns an HTTP URL that answers 404 at once when the stream
+// is offline, which RTSP does not do. "" for custom sources.
+func (s Source) LiveCheckURL() string {
+	if s.Custom != "" {
+		return ""
+	}
+	return s.URL(MPEGTS)
+}
+
 // Canonical is the form stored in the config: the bare name for VRCDN
 // streams, the full URL for custom ones.
 func (s Source) Canonical() string { return s.Display() }

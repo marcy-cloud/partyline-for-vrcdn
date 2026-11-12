@@ -107,3 +107,24 @@ func TestTransport(t *testing.T) {
 		}
 	}
 }
+
+func TestFallbackAndLiveCheck(t *testing.T) {
+	dj := Source{Name: "dj"}
+	ts := "https://" + Host + "/live/dj.live.ts"
+	if got := dj.FallbackURL(RTSP); got != ts {
+		t.Errorf("default RTSP falls back to %q, want %q", got, ts)
+	}
+	// A pinned transport, or one that is already HTTP, has no fallback.
+	for _, tr := range []Transport{RTSPUDP, RTSPTCP, FLV, MPEGTS} {
+		if got := dj.FallbackURL(tr); got != "" {
+			t.Errorf("%s falls back to %q, want nothing", tr, got)
+		}
+	}
+	if got := dj.LiveCheckURL(); got != ts {
+		t.Errorf("live check = %q, want %q", got, ts)
+	}
+	custom := Source{Custom: "rtsp://relay.example/live/x"}
+	if custom.FallbackURL(RTSP) != "" || custom.LiveCheckURL() != "" {
+		t.Error("custom URLs have no fallback or live check")
+	}
+}

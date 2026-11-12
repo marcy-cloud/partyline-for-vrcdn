@@ -24,10 +24,10 @@ What to run, in rough order of cost, and which stream to test against.
 
 - **Offline over RTSP is silence, not an error.** VRCDN's RTSP server does
   not answer for a stream that is offline or does not exist; the HTTP outputs
-  (`.live.ts`, `.live.flv`) return 404 at once. In the player this shows as
-  "No response over UDP, trying TCP" and then "Timed out connecting". Before
-  chasing an RTSP hang, check the stream is live:
-  `probe -transport mpegts -for 5s <name>`.
+  (`.live.ts`, `.live.flv`) answer 401 or 404 after about 4 seconds. The
+  player uses that to show "Stream is offline or doesn't exist". A custom
+  RTSP URL has no such check, and offline there looks like "Timed out
+  connecting".
 - **A stream with no audio playing reads -100 dB** on the meter. That is
   digital silence from the sender, not a broken meter.
 

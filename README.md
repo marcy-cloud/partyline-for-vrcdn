@@ -29,6 +29,28 @@ else to install.
 - **Stereo level meter.** Shows the level of the incoming audio per channel,
   measured before the volume control, so you can see a stream has signal
   even with the player turned down.
+- **Finds a way through.** By default a stream is tried over RTSP on UDP,
+  which has the lowest latency, then RTSP on TCP, then MPEG-TS over HTTPS,
+  moving on when nothing arrives within 4 seconds. That covers VPNs that drop
+  UDP and public Wi-Fi that filters RTSP altogether. Once a fallback has been
+  needed, later streams start there for the next 10 minutes instead of
+  waiting again. The saved setting is not changed, and the panel shows which
+  way is in use. A stream can also be pinned to UDP only, TCP only, FLV or
+  MPEG-TS from a menu next to the Stop button; it reconnects at once.
+- **Knows offline from blocked.** RTSP gives no answer for a stream that is
+  offline, so the player also asks over HTTPS and says "offline" instead of
+  timing out.
+- **Auto-reconnect.** Keeps retrying while a stream is offline and reconnects
+  if it drops or stalls, so audio starts by itself when the performer goes
+  live.
+- **Buffer readout and resync.** Shows how much audio is queued (the part of
+  the delay the player is responsible for). *Resync* drops it. *Auto catch-up*
+  skips whatever queued up while connecting, plays 10% fast when the queue
+  later stays above a threshold, and drops it outright if it gets very large.
+- **Output device and volume**, remembered between runs.
+- **Stereo level meter.** Shows the level of the incoming audio per channel,
+  measured before the volume control, so you can see a stream has signal
+  even with the player turned down.
 - **UDP first.** RTSP streams are tried over UDP, which has the lowest
   latency, and fall back to TCP if no audio arrives within 4 seconds (many
   routers drop the UDP). Once that has happened, later streams go straight

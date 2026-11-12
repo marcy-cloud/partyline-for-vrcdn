@@ -57,8 +57,9 @@ export interface State {
     "info": StreamInfo;
 
     /**
-     * Via is the RTSP transport in use ("udp" or "tcp"), or "" for streams
-     * that aren't RTSP.
+     * Via is how the stream is being pulled when there was a choice: the
+     * RTSP transport ("udp" or "tcp"), or ViaHTTP after falling back from
+     * RTSP. "" for streams with only one way in.
      */
     "via": string;
 }

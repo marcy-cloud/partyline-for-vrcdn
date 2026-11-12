@@ -173,8 +173,11 @@ func (a *App) Play(id string) error {
 		StreamID: st.ID,
 		Label:    st.Label,
 		URL:      src.URL(st.Transport),
+		// Run-time only: the saved connection setting is never changed.
+		RTSPTransports: src.RTSPTransports(st.Transport),
+		FallbackURL:    src.FallbackURL(st.Transport),
+		LiveCheckURL:   src.LiveCheckURL(),
 	}
-	target.RTSPTransports = src.RTSPTransports(st.Transport)
 	a.ctl.Play(target)
 	return nil
 }
