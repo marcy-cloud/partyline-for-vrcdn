@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { Snippet } from 'svelte'
   import Icon from './Icon.svelte'
   import Sparkline from './Sparkline.svelte'
   import ThemeToggle from './ThemeToggle.svelte'
@@ -20,6 +21,12 @@
     transport: Transport | ''
     ontransport: (transport: Transport) => void
     onplay: () => void
+    /** Which tab is showing. The Send tab's content comes in as a snippet. */
+    view: 'listen' | 'send'
+    onview: (view: 'listen' | 'send') => void
+    send?: Snippet
+    /** True while a broadcast is going out, shown as a dot on the Send tab. */
+    onAir: boolean
     onstop: () => void
     onresync: () => void
     onretry: () => void
@@ -40,6 +47,10 @@
     transport,
     ontransport,
     onplay,
+    view,
+    onview,
+    send,
+    onAir,
     onstop,
     onresync,
     onretry,
@@ -105,7 +116,18 @@
 <main>
   <div class="window">
     <div class="titlebar">
-      <span class="pixel" aria-hidden="true">now-playing.exe</span>
+      {#if send}
+        <span class="tabs" role="tablist">
+          <button class="tab pixel" role="tab" aria-selected={view === 'listen'} onclick={() => onview('listen')}>
+            now-playing.exe
+          </button>
+          <button class="tab pixel" role="tab" aria-selected={view === 'send'} onclick={() => onview('send')}>
+            send.exe{#if onAir}<span class="on-air" aria-label="on air"></span>{/if}
+          </button>
+        </span>
+      {:else}
+        <span class="pixel" aria-hidden="true">now-playing.exe</span>
+      {/if}
       <span class="chrome">
         <ThemeToggle />
         <span aria-hidden="true">♡ ✿</span>
@@ -113,6 +135,9 @@
     </div>
 
     <div class="body">
+      {#if view === 'send' && send}
+        {@render send()}
+      {:else}
       {#if engineError}
         <section class="callout" role="alert">
           <h1>Audio engine not available</h1>
@@ -297,6 +322,7 @@
       </section>
 
       <footer class="mono">{engine}</footer>
+      {/if}
     </div>
   </div>
 </main>
@@ -325,11 +351,45 @@
     overflow-y: auto;
   }
 
-  section {
+  .body :global(section) {
     flex: none;
   }
 
-  /* Now playing */
+  /* Tabs in the title bar. */
+  .tabs {
+    display: flex;
+    gap: var(--gt-space-1);
+    margin-left: calc(-1 * var(--gt-space-2));
+  }
+
+  .tabs .tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    width: auto;
+    height: 24px;
+    padding: 0 var(--gt-space-2);
+    font: var(--gt-text-pixel) / 1 var(--gt-font-pixel);
+    letter-spacing: 0.04em;
+    opacity: 0.65;
+  }
+
+  .tabs .tab[aria-selected='true'] {
+    background: color-mix(in oklab, var(--gt-white) 45%, transparent);
+    opacity: 1;
+  }
+
+  .on-air {
+    width: 8px;
+    height: 8px;
+    border: var(--gt-border-width) solid var(--gt-ink);
+    border-radius: 50%;
+    background: var(--gt-mint);
+    box-sizing: content-box;
+  }
+
+  /* Now playing. The rules written as .body :global(...) also style the Send
+     tab, whose content is rendered inside this component's body. */
   .now {
     position: relative;
     --status: var(--gt-lavender);
@@ -354,14 +414,14 @@
     --status-text: var(--gt-coral-text);
   }
 
-  .status-line {
+  .body :global(.status-line) {
     display: flex;
     align-items: center;
     gap: var(--gt-space-2);
     margin-bottom: var(--gt-space-2);
   }
 
-  .badge {
+  .body :global(.badge) {
     display: inline-flex;
     align-items: center;
     gap: 7px;
@@ -377,7 +437,7 @@
     --status-text: var(--gt-butter-text);
   }
 
-  .dot {
+  .body :global(.dot) {
     width: 8px;
     height: 8px;
     border-radius: 50%;
@@ -389,7 +449,7 @@
     animation: pulse 1.2s ease-in-out infinite;
   }
 
-  h1 {
+  .body :global(h1) {
     font-size: var(--gt-text-h1);
     line-height: 1.2;
     overflow: hidden;
@@ -401,7 +461,7 @@
     color: var(--gt-text-muted);
   }
 
-  .sub {
+  .body :global(.sub) {
     margin-top: 2px;
     color: var(--gt-text-muted);
     font-size: var(--gt-text-small);
@@ -410,11 +470,11 @@
     white-space: nowrap;
   }
 
-  .sub:not(.mono) {
+  .body :global(.sub:not(.mono)) {
     font-size: var(--gt-text-body);
   }
 
-  .message {
+  .body :global(.message) {
     margin-top: 6px;
     color: var(--status-text);
     font-weight: 600;
@@ -554,7 +614,7 @@
     width: 168px;
   }
 
-  .actions {
+  .body :global(.actions) {
     display: flex;
     align-items: center;
     gap: var(--gt-space-2);
@@ -563,32 +623,32 @@
   }
 
   /* Controls */
-  .controls {
+  .body :global(.controls) {
     display: grid;
     gap: var(--gt-space-2);
     padding-top: var(--gt-space-4);
     border-top: var(--gt-border-width) dotted var(--gt-border);
   }
 
-  .control {
+  .body :global(.control) {
     display: grid;
     grid-template-columns: 64px 1fr 32px;
     align-items: center;
     gap: var(--gt-space-3);
   }
 
-  .control > span {
+  .body :global(.control) > :global(span) {
     color: var(--gt-text-muted);
     font-weight: 700;
     font-size: var(--gt-text-small);
   }
 
-  .control select {
+  .body :global(.control select) {
     grid-column: 2 / -1;
     min-width: 0;
   }
 
-  output {
+  .body :global(output) {
     text-align: right;
     color: var(--gt-text-muted);
   }
@@ -625,12 +685,12 @@
   /* Incoming level, left over right. The colours sit at fixed places on the
      scale (mint, then butter for the top 12 dB, pink for the top 3) and
      --fill uncovers them from the left. */
-  .level {
+  .body :global(.level) {
     display: grid;
     gap: 3px;
   }
 
-  .bar {
+  .body :global(.bar) {
     height: 6px;
     border-radius: var(--gt-radius-pill);
     background:
@@ -638,7 +698,7 @@
       linear-gradient(to right, var(--gt-mint) 80%, var(--gt-butter) 80% 95%, var(--gt-pink) 95%);
   }
 
-  .control > .lr {
+  .body :global(.control) > :global(.lr) {
     color: var(--gt-text-faint);
     font-family: var(--gt-font-pixel);
     font-size: var(--gt-text-small);

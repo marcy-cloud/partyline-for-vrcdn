@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import NowPlaying from './lib/NowPlaying.svelte'
+  import Send from './lib/Send.svelte'
   import StreamDialog from './lib/StreamDialog.svelte'
   import StreamList from './lib/StreamList.svelte'
   import {
@@ -8,11 +9,15 @@
     errorText,
     idleState,
     isCustomSource,
+    sendOff,
     silentLevels,
     type Api,
     type AudioDevice,
     type Levels,
     type PlayerState,
+    type SendInfo,
+    type SendSettings,
+    type SendState,
     type Settings,
     type Stream,
     type Transport,
@@ -35,6 +40,13 @@
   let devices = $state.raw<AudioDevice[]>([])
   let history = $state.raw<number[]>([])
   let levels = $state.raw<Levels>(silentLevels)
+
+  // The sender (the Send tab). Hidden where the build can't send.
+  let view = $state<'listen' | 'send'>('listen')
+  let sendInfo = $state.raw<SendInfo | null>(null)
+  let sendState = $state.raw<SendState>(sendOff)
+  let sendLevels = $state.raw<Levels>(silentLevels)
+  let onAir = $derived(sendState.status !== 'off' && sendState.status !== 'failed')
   let engine = $state('')
   let engineError = $state('')
   let engineHelp = $state('')
@@ -70,6 +82,38 @@
   // sink back, like a hardware meter, so short ones stay visible.
   const METER_FALL = 2.5
 
+  function applySend(next: SendState) {
+    if (next.status !== 'live') sendLevels = silentLevels
+    sendState = next
+  }
+
+  function applySendLevels(next: Levels) {
+    if (sendState.status !== 'live') return
+    sendLevels = {
+      left: Math.max(next.left, sendLevels.left - METER_FALL),
+      right: Math.max(next.right, sendLevels.right - METER_FALL),
+    }
+  }
+
+  async function loadSendInfo() {
+    const info = await call((a) => a.sendInfo())
+    if (info) sendInfo = info
+  }
+
+  async function saveSendSettings(patch: Partial<SendSettings>) {
+    if (!sendInfo) return
+    const settings = { ...sendInfo.settings, ...patch }
+    sendInfo = { ...sendInfo, settings }
+    const saved = await call((a) => a.saveSendSettings(settings))
+    if (saved && sendInfo) sendInfo = { ...sendInfo, settings: saved }
+  }
+
+  async function setSendKey(key: string) {
+    if (!api || !sendInfo) return
+    await api.setSendKey(key) // errors surface next to the field
+    sendInfo = { ...sendInfo, hasKey: key.trim() !== '' }
+  }
+
   function applyLevels(next: Levels) {
     if (player.status !== 'playing') return
     levels = {
@@ -84,6 +128,8 @@
       api.onState(applyState)
       api.onDevices((d) => (devices = d))
       api.onLevels(applyLevels)
+      api.onSend(applySend)
+      api.onSendLevels(applySendLevels)
       const boot = await api.bootstrap()
       streams = boot.streams
       settings = boot.settings
@@ -93,6 +139,9 @@
       engineHelp = boot.engineHelp
       applyState(boot.state)
       if (boot.notice) notify(boot.notice)
+      sendInfo = await api.sendInfo()
+      applySend(sendInfo.state)
+      if (new URLSearchParams(location.search).get('demo') === 'sending') view = 'send'
     } catch (e) {
       engineError = errorText(e)
     }
@@ -171,6 +220,21 @@
 
 <svelte:window {onkeydown} />
 
+{#snippet sendPanel()}
+  {#if sendInfo}
+    <Send
+      info={sendInfo}
+      current={sendState}
+      levels={sendLevels}
+      onsettings={saveSendSettings}
+      onkey={setSendKey}
+      onstart={() => call((a) => a.startSend())}
+      onstop={() => call((a) => a.stopSend())}
+      onrefresh={loadSendInfo}
+    />
+  {/if}
+{/snippet}
+
 {#if loaded}
   <div class="shell">
     <StreamList
@@ -194,6 +258,13 @@
       resumeLabel={resume?.label ?? ''}
       transport={resume && !isCustomSource(resume.source) ? resume.transport : ''}
       ontransport={setTransport}
+      {view}
+      onview={(v) => {
+        view = v
+        if (v === 'send') loadSendInfo() // inputs may have been plugged in since
+      }}
+      {onAir}
+      send={sendInfo?.supported ? sendPanel : undefined}
       onplay={() => resume && play(resume.id)}
       onstop={() => call((a) => a.stop())}
       onresync={() => call((a) => a.resync())}

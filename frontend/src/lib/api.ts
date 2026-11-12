@@ -64,6 +64,35 @@ export interface Levels {
 /** What the meter shows when there is no signal, and the bottom of its scale. */
 export const silentLevels: Levels = { left: -100, right: -100 }
 
+export type SendStatus = 'off' | 'connecting' | 'live' | 'reconnecting' | 'failed'
+
+export interface SendState {
+  status: SendStatus
+  message: string
+  attempt: number
+  /** When this broadcast first went live (Unix ms), or 0. */
+  sinceMs: number
+}
+
+export const sendOff: SendState = { status: 'off', message: '', attempt: 0, sinceMs: 0 }
+
+export interface SendSettings {
+  ingest: string
+  device: string
+  bitrateKbps: number
+}
+
+export interface SendInfo {
+  /** False where this build can't send; the Send tab is then hidden. */
+  supported: boolean
+  settings: SendSettings
+  hasKey: boolean
+  state: SendState
+  devices: { id: string; name: string }[]
+  ingests: { name: string; url: string }[]
+  bitrates: number[]
+}
+
 export interface AudioDevice {
   name: string
   description: string
@@ -110,6 +139,15 @@ export interface Api {
   onDevices(cb: (devices: AudioDevice[]) => void): void
   /** About 20 readings a second while a stream is playing. */
   onLevels(cb: (levels: Levels) => void): void
+
+  sendInfo(): Promise<SendInfo>
+  saveSendSettings(settings: SendSettings): Promise<SendSettings>
+  /** Saves the stream key; '' forgets it. The key never comes back out. */
+  setSendKey(key: string): Promise<void>
+  startSend(): Promise<void>
+  stopSend(): Promise<void>
+  onSend(cb: (state: SendState) => void): void
+  onSendLevels(cb: (levels: Levels) => void): void
 }
 
 // The generated bindings use their own (enum-based) types; our interfaces
@@ -130,6 +168,17 @@ const wails: Api = {
   onState: (cb) => void Events.On('state', (e) => cb(e.data as unknown as PlayerState)),
   onDevices: (cb) => void Events.On('devices', (e) => cb((e.data ?? []) as unknown as AudioDevice[])),
   onLevels: (cb) => void Events.On('levels', (e) => cb(e.data as unknown as Levels)),
+
+  sendInfo: async () => {
+    const info = (await Backend.SendInfo()) as unknown as SendInfo
+    return { ...info, devices: info.devices ?? [], ingests: info.ingests ?? [], bitrates: info.bitrates ?? [] }
+  },
+  saveSendSettings: (s) => Backend.SaveSendSettings(s) as unknown as Promise<SendSettings>,
+  setSendKey: (key) => Backend.SetSendKey(key),
+  startSend: () => Backend.StartSend(),
+  stopSend: () => Backend.StopSend(),
+  onSend: (cb) => void Events.On('send', (e) => cb(e.data as unknown as SendState)),
+  onSendLevels: (cb) => void Events.On('sendLevels', (e) => cb(e.data as unknown as Levels)),
 }
 
 /** True inside the Wails window, false in a plain browser (npm run dev). */

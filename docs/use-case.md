@@ -51,9 +51,8 @@ as possible. Everything after the VJ's visualiser is out of scope.
 
 ## Ideas this context makes sensible
 
-- **A sender** (see the conversation of 2026-11-11): push audio only from the
-  DJ to VRCDN without OBS, with known-good settings. Not built. Open
-  questions are in [vrcdn.md](vrcdn.md).
+- **A sender** for the DJ: push audio only to VRCDN without OBS, with
+  known-good settings. Built as the Send tab; see [sender.md](sender.md).
 - **VRCDN private streams** are what VRCDN itself recommends for this DJ to
   VJ link (see [vrcdn.md](vrcdn.md)). PartyLine treats a private key like any
   other stream name today.

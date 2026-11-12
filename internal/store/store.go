@@ -70,6 +70,20 @@ type file struct {
 	Version  int      `json:"version"`
 	Streams  []Stream `json:"streams"`
 	Settings Settings `json:"settings"`
+	Send     Send     `json:"send"`
+}
+
+// Send holds the sender's settings.
+type Send struct {
+	// Ingest is the RTMP address to send to; "" means the default.
+	Ingest string `json:"ingest"`
+	// Device is the ID of the input last used.
+	Device string `json:"device"`
+	// BitrateKbps is the AAC bitrate; 0 means the default.
+	BitrateKbps int `json:"bitrateKbps"`
+	// Key is the stream key in protected form (see package secret), never
+	// in the clear. Empty when none is saved.
+	Key string `json:"key,omitempty"`
 }
 
 // Store is a concurrency-safe, file-backed config.
@@ -259,6 +273,21 @@ func (s *Store) SetSettings(in Settings) (Settings, error) {
 
 // saveLocked writes the config atomically (temp file + rename) so a crash
 // mid-write can't leave a truncated config.
+// Send returns the sender's settings.
+func (s *Store) Send() Send {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.data.Send
+}
+
+// SetSend saves the sender's settings.
+func (s *Store) SetSend(in Send) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.data.Send = in
+	return s.saveLocked()
+}
+
 func (s *Store) saveLocked() error {
 	raw, err := json.MarshalIndent(s.data, "", "  ")
 	if err != nil {

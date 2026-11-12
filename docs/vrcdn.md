@@ -180,8 +180,9 @@ On one stream, from one Windows PC, on 2026-11-10 and 2026-11-11:
   network is the likely cause (public Wi-Fi often filters RTSP). Not
   confirmed. It matches the wiki's "RTSPT doesn't work, but MPEG-TS does".
 - **VRCDN accepts audio-only streams** (AAC in FLV over RTMP, no video
-  track), and serves them on RTSP, FLV and MPEG-TS. See
-  [sender.md](sender.md).
+  track), and serves them on RTSP, FLV and MPEG-TS, about 1 second after
+  sending starts. A wrong key is refused with a 403, "Invalid stream key or
+  user disabled". See [sender.md](sender.md).
 
 ## What this means for PartyLine
 

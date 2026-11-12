@@ -4,3 +4,7 @@
 export {
     Transport
 } from "./models.js";
+
+export type {
+    Ingest
+} from "./models.js";

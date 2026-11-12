@@ -1,12 +1,13 @@
-// Command sendprobe is an experiment: can libmpv, as bundled, encode audio
-// only and push it to an RTMP ingest (or a file), with no video track?
+// Command sendprobe drives the sender without the GUI: it lists the inputs
+// that can be sent and, given a stream key, sends one to an RTMP ingest
+// while printing state changes and levels.
 //
-//	go run ./cmd/sendprobe -to out.flv -for 5s              # test tone into a file
-//	go run ./cmd/sendprobe -key-file key.txt -for 30s       # test tone to VRCDN
-//	go run ./cmd/sendprobe -input "av://dshow:audio=Line In" -key-file key.txt
+//	go run ./cmd/sendprobe -list
+//	go run ./cmd/sendprobe -key-file key.txt -for 30s             # test tone
+//	go run ./cmd/sendprobe -key-file key.txt -device "Line In"    # an input, by part of its name
 //
 // The stream key is read from a file so it never appears on a command line
-// or in shell history.
+// or in shell history, and it is never printed.
 package main
 
 import (
@@ -17,73 +18,71 @@ import (
 	"strings"
 	"time"
 
-	"partyline/internal/libmpv"
+	"partyline/internal/meter"
+	"partyline/internal/sender"
+	"partyline/internal/vrcdn"
 )
 
-// A 440 Hz tone that peaks at about -12 dBFS on both channels, paced in real
-// time (lavfi would otherwise produce it as fast as the encoder can take
-// it). lavfi's sine is -18 dB and loses 3 dB going from mono to stereo.
-const testTone = "av://lavfi:sine=frequency=440:sample_rate=48000,volume=9dB,aformat=channel_layouts=stereo,arealtime"
-
 func main() {
-	input := flag.String("input", testTone, "what to send: an mpv URL such as av://dshow:audio=<device>")
-	to := flag.String("to", "", "output file or URL; overrides -ingest and -key-file")
-	ingest := flag.String("ingest", "rtmp://ingest.vrcdn.live/live", "RTMP ingest address")
+	list := flag.Bool("list", false, "list the inputs and exit")
+	device := flag.String("device", sender.TestTone.Name, "input to send: part of its name")
+	ingest := flag.String("ingest", vrcdn.Ingests[0].URL, "RTMP ingest address")
 	keyFile := flag.String("key-file", "", "file holding the stream key")
-	bitrate := flag.Int("bitrate", 320, "AAC bitrate in kbps")
+	bitrate := flag.Int("bitrate", sender.Bitrates[0], "AAC bitrate in kbps")
 	duration := flag.Duration("for", 0, "stop after this long (default: until Ctrl+C)")
-	verbose := flag.Bool("v", false, "show mpv's informational log too")
 	flag.Parse()
 
-	target, shown := *to, *to
-	if target == "" {
-		if *keyFile == "" {
-			fail("give -to or -key-file")
+	devices, err := sender.Devices()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "warning: could not list input devices:", err)
+	}
+	if *list {
+		for _, d := range devices {
+			fmt.Println(d.Name)
 		}
-		raw, err := os.ReadFile(*keyFile)
-		if err != nil {
-			fail(err.Error())
-		}
-		key := strings.TrimSpace(string(raw))
-		if key == "" {
-			fail("the key file is empty")
-		}
-		target = strings.TrimRight(*ingest, "/") + "/" + key
-		shown = strings.TrimRight(*ingest, "/") + "/<key>"
+		return
 	}
 
-	m, err := libmpv.New()
+	var input *sender.Device
+	for i, d := range devices {
+		if strings.Contains(strings.ToLower(d.Name), strings.ToLower(*device)) {
+			input = &devices[i]
+			break
+		}
+	}
+	if input == nil {
+		fail(fmt.Sprintf("no input matches %q; see -list", *device))
+	}
+	if *keyFile == "" {
+		fail("give -key-file")
+	}
+	raw, err := os.ReadFile(*keyFile)
 	if err != nil {
 		fail(err.Error())
 	}
-	options := [][2]string{
-		{"config", "no"}, {"terminal", "no"}, {"ytdl", "no"}, {"load-scripts", "no"},
-		{"vid", "no"}, {"sid", "no"},
-		// Encode instead of play.
-		{"o", target},
-		{"of", "flv"},
-		{"oac", "aac"},
-		{"oacopts", fmt.Sprintf("b=%dk", *bitrate)},
-		{"audio-samplerate", "48000"},
-		{"audio-channels", "stereo"},
-	}
-	for _, kv := range options {
-		if err := m.SetOption(kv[0], kv[1]); err != nil {
-			fail(fmt.Sprintf("option %s: %v", kv[0], err))
-		}
-	}
-	if err := m.Initialize(); err != nil {
-		fail(err.Error())
-	}
-	level := "warn"
-	if *verbose {
-		level = "v"
-	}
-	_ = m.RequestLogMessages(level)
 
-	version, _ := m.GetString("mpv-version")
-	fmt.Printf("%s\nsending %s\n     to %s (AAC %d kbps, 48 kHz stereo, no video)\n", version, *input, shown, *bitrate)
-	if err := m.Command("loadfile", *input); err != nil {
+	began := time.Now()
+	stamp := func() string { return fmt.Sprintf("%5.1fs", time.Since(began).Seconds()) }
+	readings := 0
+	s := sender.New(sender.DefaultTuning(), sender.Hooks{
+		State: func(st sender.State) {
+			line := fmt.Sprintf("%s %-12s", stamp(), st.Status)
+			if st.Message != "" {
+				line += fmt.Sprintf(" %s (attempt %d)", st.Message, st.Attempt)
+			}
+			fmt.Println(line)
+		},
+		Levels: func(l meter.Levels) {
+			// About 25 readings a second; show one every two seconds.
+			if readings++; readings%50 == 0 {
+				fmt.Printf("%s level        L %6.1f dB  R %6.1f dB\n", stamp(), l.Left, l.Right)
+			}
+		},
+	})
+
+	fmt.Printf("sending %s\n     to %s/<key> (AAC %d kbps, 48 kHz stereo, no video)\n", input.Name, strings.TrimRight(*ingest, "/"), *bitrate)
+	err = s.Start(sender.Config{Ingest: *ingest, Key: strings.TrimSpace(string(raw)), Device: input.ID, BitrateKbps: *bitrate})
+	if err != nil {
 		fail(err.Error())
 	}
 
@@ -93,38 +92,22 @@ func main() {
 	if *duration > 0 {
 		timeUp = time.After(*duration)
 	}
-	began := time.Now()
-	lastReport := began
-
-loop:
+	gaveUp := time.NewTicker(200 * time.Millisecond)
+	defer gaveUp.Stop()
+wait:
 	for {
 		select {
 		case <-interrupt:
-			break loop
+			break wait
 		case <-timeUp:
-			break loop
-		default:
-		}
-		ev := m.WaitEvent(0.25)
-		switch ev.ID {
-		case libmpv.EventLogMessage:
-			// Never echo the key, which mpv includes in the output URL.
-			fmt.Println("mpv:", strings.ReplaceAll(strings.TrimSpace(ev.LogText), target, shown))
-		case libmpv.EventEndFile:
-			fmt.Printf("ended after %.1fs: reason %d %s\n", time.Since(began).Seconds(), ev.Reason, ev.EndErr)
-			break loop
-		case libmpv.EventShutdown:
-			break loop
-		}
-		if time.Since(lastReport) >= 2*time.Second {
-			lastReport = time.Now()
-			pos, _ := m.GetDouble("time-pos")
-			fmt.Printf("  %5.1fs elapsed, %5.1fs of audio sent\n", time.Since(began).Seconds(), pos)
+			break wait
+		case <-gaveUp.C:
+			if s.State().Status == sender.Failed {
+				os.Exit(1)
+			}
 		}
 	}
-	// Destroying the core finishes the output properly.
-	m.Destroy()
-	fmt.Println("stopped")
+	s.Stop()
 }
 
 func fail(msg string) {

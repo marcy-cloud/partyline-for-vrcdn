@@ -2,7 +2,8 @@
 // WebView2's DevTools port open, then drives the UI the way a person would:
 // plays the first saved stream (muted, without saving the volume), switches
 // its connection to MPEG-TS and back, stops it, starts it again with the Play
-// button, opens the dialog and switches theme,
+// button, looks at the Send tab (and goes live with the test tone if
+// PARTYLINE_TEST_KEY holds a stream key), opens the dialog and switches theme,
 // saving a screenshot at each step.
 //
 //   go build -tags bundled_libmpv -o bin/dev.exe .
@@ -134,6 +135,53 @@ try {
     console.log(`after pressing "${label}":`, back)
     await js(`[...document.querySelectorAll('.actions .btn')].find((b) => /Stop/.test(b.innerText))?.click()`)
     await sleep(500)
+  }
+
+  // The Send tab. With PARTYLINE_TEST_KEY set, also go live with the test
+  // tone, then stop and forget the key again. The key is never printed.
+  const sendTab = `[...document.querySelectorAll('.tabs .tab')].find((b) => /send/.test(b.innerText))`
+  if (await js(`!!${sendTab}`)) {
+    await js(`${sendTab}.click()`)
+    await sleep(1200)
+    const sendSnapshot = () => js(`JSON.stringify({
+      badge: document.querySelector('.sending .badge')?.innerText?.trim() ?? null,
+      message: document.querySelector('.sending .message')?.innerText ?? null,
+      inputs: [...document.querySelectorAll('.controls .control select')][0]?.options.length ?? 0,
+      level: document.querySelector('.level')?.getAttribute('aria-label') ?? null,
+      goLive: document.querySelector('.go-live')?.innerText?.trim() + (document.querySelector('.go-live')?.disabled ? ' (disabled)' : ''),
+      overflow: (() => { const b = document.querySelector('.window .body'); return b.scrollHeight - b.clientHeight })(),
+    })`).then(JSON.parse)
+    console.log('send tab:', JSON.stringify(await sendSnapshot()))
+    await shot('smoke-send')
+
+    const testKey = process.env.PARTYLINE_TEST_KEY
+    if (testKey) {
+      const setValue = (selector, value, event) => js(`(() => { const el = document.querySelector(${JSON.stringify(selector)}); const proto = el instanceof HTMLSelectElement ? HTMLSelectElement.prototype : HTMLInputElement.prototype; Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, ${JSON.stringify(value)}); el.dispatchEvent(new Event(${JSON.stringify(event)}, { bubbles: true })) })()`)
+      const inputWas = await js(`document.querySelector('.controls .control select').value`)
+      await setValue('.controls .control select', 'test-tone', 'change')
+      await setValue('.key input', testKey, 'input')
+      await js(`document.querySelector('.key .btn').click()`)
+      await sleep(600)
+      await js(`document.querySelector('.go-live').click()`)
+      let on = null
+      for (let i = 0; i < 16 && on?.badge !== 'On air'; i++) {
+        await sleep(500)
+        on = await sendSnapshot()
+      }
+      await sleep(1500)
+      on = await sendSnapshot()
+      console.log('went live:', on.badge, '|', on.level, '|', on.message)
+      await shot('smoke-on-air')
+      await js(`document.querySelector('.go-live').click()`)
+      await sleep(800)
+      console.log('after stop:', (await sendSnapshot()).badge)
+      await js(`[...document.querySelectorAll('.key .btn')].find((b) => /Forget/.test(b.innerText))?.click()`)
+      await setValue('.controls .control select', inputWas, 'change')
+      await sleep(400)
+      console.log('key forgotten:', (await sendSnapshot()).goLive)
+    }
+    await js(`[...document.querySelectorAll('.tabs .tab')].find((b) => /now-playing/.test(b.innerText)).click()`)
+    await sleep(300)
   }
 
   // The dialog and the theme switch.

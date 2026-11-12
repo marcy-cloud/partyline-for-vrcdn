@@ -7,13 +7,21 @@ import type { Events } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import type * as meter$0 from "../../../../../partyline/internal/meter/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import type * as player$0 from "../../../../../partyline/internal/player/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import type * as sender$0 from "../../../../../partyline/internal/sender/models.js";
 
 declare module "@wailsio/runtime" {
     namespace Events {
         interface CustomEvents {
             "devices": player$0.AudioDevice[] | null;
             "levels": player$0.Levels;
+            "send": sender$0.State;
+            "sendLevels": meter$0.Levels;
             "state": player$0.State;
         }
     }

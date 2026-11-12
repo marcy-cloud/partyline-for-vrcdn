@@ -1,74 +1,89 @@
-# A sender for PartyLine (investigation)
+# The sender
 
-Goal: let a DJ push audio to VRCDN from PartyLine, with known-good settings,
-instead of setting up OBS. Not built; this records what we know. Context:
-[use-case.md](use-case.md), [vrcdn.md](vrcdn.md).
+PartyLine can send as well as listen: the Send tab pushes audio, and only
+audio, from an input device to VRCDN, so a DJ does not need OBS for the
+pre-feed. Context: [use-case.md](use-case.md), [vrcdn.md](vrcdn.md).
+
+## What it does
+
+- Captures from a Windows audio input (a mixer's USB input, a virtual
+  cable), or a built-in 440 Hz test tone at -12 dBFS for checking the link
+  with no gear.
+- Encodes AAC at 320, 256 or 192 kbps, 48 kHz stereo, and sends it over RTMP
+  with no video track, to VRCDN's default ingest or a chosen region.
+- Shows the outgoing level, the time on air, and reconnects by itself if the
+  connection drops. If it never gets on air in three tries (a wrong key, for
+  example) it stops and says why, rather than keep knocking.
+- Keeps the stream key encrypted with Windows data protection (DPAPI), so
+  only the same Windows account on the same PC can read it. The key goes in
+  through the Send tab and is never shown, logged or sent back to the UI.
+
+## How it is built
+
+- `internal/sender`: `Sender` runs a broadcast on a libmpv core in encoding
+  mode and holds the reconnect policy. `Devices` lists inputs by asking
+  ffmpeg's DirectShow input, whose listing only comes out as log lines.
+- **The sender runs in a process of its own.** The app starts a second copy
+  of itself (`partyline.exe --send-worker`), hands it the settings and key on
+  stdin, and reads state and levels from stdout; closing stdin stops it.
+  `--list-inputs` does the device listing the same way. This is because
+  libmpv gives every core's ffmpeg log lines to the first core created in a
+  process, which in the app is the player's: a sender in the same process
+  could not see its own errors or the device list. It also keeps a broadcast
+  and the player from taking each other down.
+- `internal/secret` protects the key; `internal/meter` is the level meter
+  shared with the player.
+- `cmd/sendprobe` drives the sender from a console, in one process.
 
 ## Tested, 2026-11-11
 
-With `cmd/sendprobe` and the libmpv that ships inside the exe:
+- **VRCDN accepts an audio-only stream** (AAC in FLV over RTMP, no video),
+  and serves it on MPEG-TS, FLV, and RTSP over TCP and UDP. The player's
+  buffer was 0–21 ms over RTSP and FLV.
+- **On air about 1 second after starting**, with the test tone and with a
+  real input device.
+- **In the real window:** went on air with the test tone, level read
+  -12 dB, stopped, and the key was forgotten again.
+- **A wrong key** is refused by VRCDN with "Invalid stream key or user
+  disabled"; the sender reports it and stops after three tries.
 
-- **VRCDN accepts an audio-only stream.** A test tone sent to a private key
-  as AAC, 320 kbps, 48 kHz stereo, in FLV over RTMP with no video track,
-  went live about 3 seconds after sending started.
-- **Every output plays it.** PartyLine's probe played it over MPEG-TS, FLV,
-  RTSP on TCP and RTSP on UDP, with the same level on all four. The
-  player's buffer was 0–21 ms over RTSP and FLV, and 130–170 ms over
-  MPEG-TS.
-- **Sending ran in real time for 75 seconds** with no errors or warnings
-  from the encoder or the RTMP connection.
-- **Capture from an input device is available**: the build includes
-  FFmpeg's DirectShow input (`av://dshow:audio=<device name>`).
-- **Capturing what the PC is playing ("loopback") is not available** through
-  libmpv. That would need our own WASAPI capture code.
+## Not done or not tested
 
-So a sender does not need a video track, and can be built on the libmpv we
-already ship.
-
-## Not tested yet
-
-- **VRChat world video players** with an audio-only stream. PartyLine is
-  the intended listener, so this only matters if someone points a world
-  player at the DJ's pre-feed.
-- **VRCDN's control panel preview** with no video.
-- End-to-end delay of a PartyLine-sent stream compared with OBS.
-- Capturing from a real device, long runs, and behaviour when the upload
-  drops.
-
-To repeat the test:
-
-```
-bin\sendprobe.exe -key-file <file with the private stream key> -for 60s
-bin\probe.exe -volume 0 -for 10s <private stream name>
-```
-
-A private stream's name is its key, so treat both as secret.
+- **Capturing what the PC is playing ("loopback").** Only input devices can
+  be sent. Loopback needs our own WASAPI capture code. Until then a virtual
+  audio cable does the job.
+- **A level meter before going live.** The meter only moves while on air.
+- **CoreAudio AAC.** Only FFmpeg's AAC encoder is available; see below.
+- **Linux and macOS.** Capture uses DirectShow, so the Send tab is hidden
+  elsewhere.
+- **Long runs**, a real mixer as the input, and what listeners hear when the
+  upload drops and comes back.
+- **VRChat world video players** and the VRCDN panel preview with an
+  audio-only stream. PartyLine is the intended listener.
+- End-to-end delay compared with OBS.
 
 ## Which AAC encoder
 
-- **FFmpeg's built-in AAC** is what the bundled libmpv has, so it is what a
-  sender can use today. At 320 kbps, VRCDN's maximum, it is transparent. It
-  is weaker than CoreAudio at low bitrates, which do not apply here. VRCDN's
-  own troubleshooting page recommends it over CoreAudio when viewers hear
-  audio loss.
+- **FFmpeg's built-in AAC** is what the bundled libmpv has, so it is what
+  the sender uses. At 320 kbps, VRCDN's maximum, it is transparent. It is
+  weaker than CoreAudio at low bitrates, which is why nothing below 192 kbps
+  is offered. VRCDN's own troubleshooting page recommends it over CoreAudio
+  when viewers hear audio loss.
 - **CoreAudio AAC** is Apple's encoder. OBS on Windows does not include it:
   it loads Apple's DLLs if iTunes or Apple Application Support is installed.
   We cannot ship those DLLs. Supporting it would mean detecting them, calling
   Apple's AudioConverter API ourselves, and writing our own FLV/RTMP output,
   because libmpv cannot pass through audio that is already encoded. That is a
-  separate project, not a setting.
-- **Plan:** an "Encoder" choice in the sender that lists what is actually
-  available on the machine. It starts with FFmpeg AAC only; CoreAudio would
-  appear when Apple's DLLs are present, once that work is done.
+  separate project. When it exists, it becomes a choice next to Quality.
 
-## Settings to use
+## To test by hand
 
-From VRCDN's wiki: RTMP to `rtmp://ingest.vrcdn.live/live` (or a regional
-ingest), AAC, 48 kHz, 320 kbps or less. For the DJ to VJ link, VRCDN's own
-advice is to send on the account's **private** key.
+```
+bin\sendprobe.exe -list
+bin\sendprobe.exe -key-file <file with the private stream key> -for 60s
+bin\probe.exe -volume 0 -for 10s <private stream name>
+```
 
-## Handling the stream key
-
-It is a secret. Read it from a file or the OS credential store; never put it
-on a command line, in the settings file in plain text, in logs, or in
-screenshots. `sendprobe` replaces it with `<key>` in everything it prints.
+A private stream's name is its key, so treat both as secret. The smoke test
+goes on air with the test tone when `PARTYLINE_TEST_KEY` is set, and forgets
+the key afterwards; see [testing.md](testing.md).

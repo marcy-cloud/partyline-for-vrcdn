@@ -6,7 +6,13 @@
 import * as player$0 from "./internal/player/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as sender$0 from "./internal/sender/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as store$0 from "./internal/store/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as vrcdn$0 from "./internal/vrcdn/models.js";
 
 /**
  * Bootstrap is everything the UI needs to draw its first frame.
@@ -21,4 +27,30 @@ export interface Bootstrap {
     "engineHelp": string;
     "notice": string;
     "configPath": string;
+}
+
+/**
+ * SendInfo is everything the Send panel needs to draw itself.
+ */
+export interface SendInfo {
+    /**
+     * Supported is false where this build cannot send (see sender.Supported).
+     */
+    "supported": boolean;
+    "settings": SendSettings;
+    "hasKey": boolean;
+    "state": sender$0.State;
+    "devices": sender$0.Device[] | null;
+    "ingests": vrcdn$0.Ingest[] | null;
+    "bitrates": number[] | null;
+}
+
+/**
+ * SendSettings are the sender's choices as the UI sees them. The stream key
+ * is not among them: it goes in through SetSendKey and never comes back out.
+ */
+export interface SendSettings {
+    "ingest": string;
+    "device": string;
+    "bitrateKbps": number;
 }

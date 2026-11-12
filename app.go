@@ -7,6 +7,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"partyline/internal/player"
+	"partyline/internal/sender"
 	"partyline/internal/store"
 	"partyline/internal/vrcdn"
 )
@@ -27,6 +28,7 @@ type App struct {
 	store  *store.Store
 	engine player.Engine
 	ctl    *player.Controller
+	send   *sender.Proxy
 
 	// engineErr is set when libmpv couldn't be loaded; the UI shows it with
 	// instructions and playback is disabled.
@@ -69,6 +71,7 @@ func (a *App) ServiceStartup(context.Context, application.ServiceOptions) error 
 		return nil
 	}
 	a.engine = engine
+	a.startSender()
 	_ = engine.SetVolume(settings.Volume)
 	_ = engine.SetAudioDevice(settings.AudioDevice)
 
@@ -86,6 +89,9 @@ func (a *App) ServiceStartup(context.Context, application.ServiceOptions) error 
 
 // ServiceShutdown is called by Wails when the application quits.
 func (a *App) ServiceShutdown() error {
+	if a.send != nil {
+		a.send.Stop()
+	}
 	if a.ctl != nil {
 		a.ctl.Close()
 	}

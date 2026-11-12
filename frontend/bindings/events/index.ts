@@ -19,6 +19,16 @@ export const Devices = "devices";
 export const Levels = "levels";
 
 /**
+ * Name of the custom event "send".
+ */
+export const Send = "send";
+
+/**
+ * Name of the custom event "sendLevels".
+ */
+export const SendLevels = "sendLevels";
+
+/**
  * Name of the custom event "state".
  */
 export const State = "state";

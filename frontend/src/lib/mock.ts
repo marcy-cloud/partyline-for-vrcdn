@@ -1,12 +1,16 @@
 // A stand-in backend so the UI can be worked on in a browser with
 // `npm run dev`. Only loaded in dev builds. Pick a scenario with ?demo=:
 //   playing (default) | catchup | reconnecting | failed | idle | empty | noengine
+//   | sending (a stream key is already saved, and the Send tab opens)
 import {
   idleState,
   type Api,
   type AudioDevice,
   type Bootstrap,
   type Levels,
+  type SendInfo,
+  type SendState,
+  sendOff,
   type PlayerState,
   type Settings,
   type Stream,
@@ -40,6 +44,30 @@ export function createMock(): Api {
   ]
 
   let levelListener: (levels: Levels) => void = () => {}
+
+  let send: SendInfo = {
+    supported: true,
+    settings: { ingest: 'rtmp://ingest.vrcdn.live/live', device: 'line-in', bitrateKbps: 320 },
+    hasKey: demo === 'sending',
+    state: sendOff,
+    devices: [
+      { id: 'line-in', name: 'Line In (DJ Mixer USB)' },
+      { id: 'cable', name: 'CABLE Output (VB-Audio Virtual Cable)' },
+      { id: 'test-tone', name: 'Test tone (440 Hz)' },
+    ],
+    ingests: [
+      { name: 'Nearest (automatic)', url: 'rtmp://ingest.vrcdn.live/live' },
+      { name: 'Europe: London', url: 'rtmp://uk.ingest.vrcdn.live/live' },
+    ],
+    bitrates: [320, 256, 192],
+  }
+  let sendTimers: number[] = []
+  let sendListener: (state: SendState) => void = () => {}
+  let sendLevelListener: (levels: Levels) => void = () => {}
+  function setSend(state: SendState) {
+    send = { ...send, state }
+    sendListener(state)
+  }
   let state: PlayerState = { ...idleState }
   let listener: (s: PlayerState) => void = () => {}
   let timers: number[] = []
@@ -163,6 +191,46 @@ export function createMock(): Api {
     onDevices() {},
     onLevels(cb) {
       levelListener = cb
+    },
+
+    async sendInfo() {
+      return send
+    },
+    async saveSendSettings(s) {
+      send = { ...send, settings: s }
+      return s
+    },
+    async setSendKey(key) {
+      send = { ...send, hasKey: key !== '' }
+    },
+    async startSend() {
+      if (!send.hasKey) throw new Error('enter your stream key first')
+      setSend({ ...sendOff, status: 'connecting' })
+      sendTimers.push(
+        window.setTimeout(() => {
+          setSend({ ...sendOff, status: 'live', sinceMs: Date.now() })
+          sendTimers.push(
+            window.setInterval(() => {
+              const base = -10 + 6 * Math.sin(Date.now() / 250)
+              sendLevelListener({ left: base - 5 * Math.random(), right: base - 1 - 5 * Math.random() })
+            }, 50),
+          )
+        }, 600),
+      )
+    },
+    async stopSend() {
+      sendTimers.forEach((t) => {
+        clearTimeout(t)
+        clearInterval(t)
+      })
+      sendTimers = []
+      setSend(sendOff)
+    },
+    onSend(cb) {
+      sendListener = cb
+    },
+    onSendLevels(cb) {
+      sendLevelListener = cb
     },
   }
 

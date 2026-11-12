@@ -18,6 +18,9 @@ else to install.
   (RTSP, RTSPT, FLV, MPEG-TS, RTMP, WSS); it is reduced to the stream name.
   Non-VRCDN `rtsp://`/`https://`/… URLs are kept as-is.
 - **One-click switching.** Click a stream, or press `1`–`9`, to cut to it.
+- **Send, too.** On Windows a Send tab pushes audio only from an input
+  device to VRCDN (AAC, 48 kHz, up to 320 kbps, no video), so a DJ can feed
+  VJs and dancers without OBS. The stream key is stored encrypted.
 - **Auto-reconnect.** Keeps retrying while a stream is offline and reconnects
   if it drops or stalls, so audio starts by itself when the performer goes
   live.
@@ -174,15 +177,19 @@ what VRCDN can do.
 ## How it is put together
 
 ```
-main.go, app.go        Wails window and the service the UI calls
+main.go, app.go,       Wails window and the service the UI calls
+send.go
 internal/vrcdn         stream name / URL parsing, URL per connection type
 internal/store         saved streams and settings (JSON in the user config dir)
 internal/player        Controller: reconnect, stall detection, catch-up policy
                        MPVEngine: the libmpv-backed implementation of Engine
+internal/sender        Sends audio only to an RTMP ingest, in a helper process
+internal/secret        keeps the stream key encrypted (Windows DPAPI)
+internal/meter         level meter shared by the player and the sender
 internal/libmpv        cgo-free binding to the libmpv client API (purego),
                        and unpacking of the built-in copy
 cmd/probe              headless test tool
-cmd/sendprobe          experiment: send audio only to VRCDN (docs/sender.md)
+cmd/sendprobe          headless test tool for the sender (docs/sender.md)
 tools/fetch-libmpv     downloads libmpv for Windows (its own Go module)
 scripts/package.ps1    builds the Windows release zip
 frontend/              Svelte 5 + TypeScript UI (look and theme: STYLE.md)

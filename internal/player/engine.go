@@ -6,6 +6,8 @@
 // the Engine interface is the seam where libmpv plugs in.
 package player
 
+import "partyline/internal/meter"
+
 // AudioDevice is an output device the engine can play to.
 type AudioDevice struct {
 	Name        string `json:"name"`
@@ -30,16 +32,12 @@ const (
 )
 
 // Silence is the level reported when there is no signal, in dBFS.
-const Silence = -100.0
+const Silence = meter.Silence
 
-// Levels is the peak level of the incoming audio per channel, in dBFS
-// (0 is full scale, Silence is nothing). It is measured before the volume
-// control, so it shows what the stream sends, not how loud it is played.
-// A mono stream reports the same value for both.
-type Levels struct {
-	Left  float64 `json:"left"`
-	Right float64 `json:"right"`
-}
+// Levels is the peak level of the incoming audio per channel, in dBFS. It is
+// measured before the volume control, so it shows what the stream sends, not
+// how loud it is played.
+type Levels = meter.Levels
 
 // EndReason says why playback of an entry ended.
 type EndReason int

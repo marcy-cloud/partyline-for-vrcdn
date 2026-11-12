@@ -13,6 +13,29 @@ import (
 // Host is the VRCDN ingest/egress host all stream URLs are served from.
 const Host = "stream.vrcdn.live"
 
+// Ingest is a server a stream can be sent to.
+type Ingest struct {
+	Name string `json:"name"`
+	// URL is the RTMP address the stream key is appended to.
+	URL string `json:"url"`
+}
+
+// Ingests lists VRCDN's RTMP ingest servers, from its wiki. The first routes
+// to the nearest one and is the default; the rest are for when that route is
+// a bad one.
+var Ingests = []Ingest{
+	{"Nearest (automatic)", "rtmp://ingest.vrcdn.live/live"},
+	{"Europe: London", "rtmp://uk.ingest.vrcdn.live/live"},
+	{"Europe: Frankfurt", "rtmp://de.ingest.vrcdn.live/live"},
+	{"North America: north east (Toronto)", "rtmp://use.ingest.vrcdn.live/live"},
+	{"North America: central (Dallas)", "rtmp://usc.ingest.vrcdn.live/live"},
+	{"North America: north west (Fremont)", "rtmp://usw.ingest.vrcdn.live/live"},
+	{"South America: São Paulo", "rtmp://br.ingest.vrcdn.live/live"},
+	{"Asia: east Japan", "rtmp://jpe.ingest.vrcdn.live/live"},
+	{"Asia: west Japan", "rtmp://jpw.ingest.vrcdn.live/live"},
+	{"Oceania: Sydney", "rtmp://au.ingest.vrcdn.live/live"},
+}
+
 // Transport selects which VRCDN endpoint a stream is pulled from.
 type Transport string
 

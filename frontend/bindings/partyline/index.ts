@@ -7,5 +7,7 @@ export {
 };
 
 export type {
-    Bootstrap
+    Bootstrap,
+    SendInfo,
+    SendSettings
 } from "./models.js";

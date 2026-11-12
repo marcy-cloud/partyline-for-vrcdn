@@ -70,9 +70,16 @@ and so on).
 7. **Before a release**: `scripts\package.ps1`, then start the exe from the
    zip once.
 
-## Sending (experimental)
+## Sending
 
-`cmd/sendprobe` pushes audio only to a file or an RTMP ingest; see
-[sender.md](sender.md). Its default input is a -12 dB test tone, so nothing
-from the PC is sent by accident. The stream key is read from a file, never
-passed on the command line.
+See [sender.md](sender.md) for what was tested and the commands.
+
+- `cmd/sendprobe` sends from a console. Its default input is the -12 dB test
+  tone, so nothing from the PC goes out by accident. The stream key is read
+  from a file, never passed on the command line.
+- The real-window smoke test always opens the Send tab. With the environment
+  variable `PARTYLINE_TEST_KEY` set to a stream key it also saves the key,
+  goes on air with the test tone, checks the level, stops, and forgets the
+  key. Use a private key, and never commit or paste one.
+- A stream key that has been pasted anywhere should be regenerated in the
+  VRCDN panel.

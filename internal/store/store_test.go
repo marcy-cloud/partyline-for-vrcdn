@@ -225,3 +225,16 @@ func TestAdoptLegacyConfig(t *testing.T) {
 		t.Error("the new config was overwritten by the legacy one")
 	}
 }
+
+func TestSendSettingsRoundTrip(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.json")
+	s, _ := Open(path)
+	want := Send{Ingest: "rtmp://uk.ingest.vrcdn.live/live", Device: "dev-1", BitrateKbps: 256, Key: "cHJvdGVjdGVk"}
+	if err := s.SetSend(want); err != nil {
+		t.Fatal(err)
+	}
+	again, err := Open(path)
+	if err != nil || again.Send() != want {
+		t.Fatalf("reloaded %+v, %v; want %+v", again.Send(), err, want)
+	}
+}

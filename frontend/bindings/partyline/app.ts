@@ -14,6 +14,9 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as sender$0 from "./internal/sender/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as store$0 from "./internal/store/models.js";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -56,10 +59,40 @@ export function Resync(): $CancellablePromise<void> {
 }
 
 /**
+ * SaveSendSettings saves the sender's choices. They take effect the next
+ * time a broadcast starts.
+ */
+export function SaveSendSettings($in: $models.SendSettings): $CancellablePromise<$models.SendSettings> {
+    return $Call.ByID(3376213707, $in);
+}
+
+/**
  * SaveStream creates (empty ID) or updates a saved stream.
  */
 export function SaveStream($in: store$0.Stream): $CancellablePromise<store$0.Stream> {
     return $Call.ByID(4226608368, $in);
+}
+
+/**
+ * SendDevices lists the inputs that can be sent right now.
+ */
+export function SendDevices(): $CancellablePromise<sender$0.Device[] | null> {
+    return $Call.ByID(2166233178);
+}
+
+/**
+ * SendInfo returns the sender's settings, state and choices.
+ */
+export function SendInfo(): $CancellablePromise<$models.SendInfo> {
+    return $Call.ByID(224905155);
+}
+
+/**
+ * SetSendKey saves the stream key, protected so that only this Windows
+ * account can read it back. An empty key forgets the saved one.
+ */
+export function SetSendKey(key: string): $CancellablePromise<void> {
+    return $Call.ByID(4153917364, key);
 }
 
 /**
@@ -71,10 +104,24 @@ export function SetVolume(volume: number): $CancellablePromise<void> {
 }
 
 /**
+ * StartSend goes live with the saved settings and key.
+ */
+export function StartSend(): $CancellablePromise<void> {
+    return $Call.ByID(1052991585);
+}
+
+/**
  * Stop ends playback.
  */
 export function Stop(): $CancellablePromise<void> {
     return $Call.ByID(4158193117);
+}
+
+/**
+ * StopSend ends the broadcast.
+ */
+export function StopSend(): $CancellablePromise<void> {
+    return $Call.ByID(158483127);
 }
 
 /**
