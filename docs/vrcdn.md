@@ -157,6 +157,20 @@ On one stream, from one Windows PC, on 2026-11-10 and 2026-11-11:
 - The UDP to TCP fallback has now been seen for real: on a network that let
   RTSP through over TCP but not UDP, the demo stream started over TCP after
   the 4-second wait.
+- **Whether RTSP works depends on the listener's network** (one PC, three
+  networks, 2026-11-11):
+
+  | Network | RTSP over UDP | RTSP over TCP | MPEG-TS / FLV |
+  | --- | --- | --- | --- |
+  | Coffee-shop Wi-Fi, Tailscale on | no response | no response | plays |
+  | Home, Tailscale on | no response | plays | plays |
+  | Home, Tailscale off | plays | plays | plays |
+
+  On the blocked networks port 554 still accepted connections; nothing came
+  back. So "no response over RTSP" usually means the network, not VRCDN.
+- The UDP to TCP fallback has now been seen for real: on a network that let
+  RTSP through over TCP but not UDP, the demo stream started over TCP after
+  the 4-second wait.
 - **RTSP can stop answering while the stream is up.** On 2026-11-11 (around
   16:40 local) a live stream that had played over RTSP hours earlier, with
   the same build, got no answer over RTSP on UDP or TCP, while MPEG-TS and
