@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from './Icon.svelte'
+  import ThemeToggle from './ThemeToggle.svelte'
   import { isCustomSource, transportLabel, type PlayerState, type Stream } from './api'
 
   interface Props {
@@ -66,6 +67,8 @@
       {/each}
     </ul>
   {/if}
+
+  <footer><ThemeToggle /></footer>
 </aside>
 
 <style>
@@ -77,7 +80,9 @@
     border-right: var(--gt-border-width) solid var(--gt-border);
   }
 
+  /* The other place to drag the window by. */
   header {
+    --wails-draggable: drag;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -291,6 +296,14 @@
   /* The status dot gives way to the edit button on hover. */
   li:hover .dot {
     visibility: hidden;
+  }
+
+  /* Bottom-left corner of the app: the day/night switch. */
+  footer {
+    margin-top: auto;
+    padding: var(--gt-space-2);
+    font-size: var(--gt-text-body);
+    line-height: 1;
   }
 
   .empty {

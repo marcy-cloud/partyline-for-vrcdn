@@ -189,11 +189,15 @@ try {
   await sleep(700)
   await shot('smoke-dialog')
   await js(`document.querySelector('dialog button[aria-label="Close"]').click()`)
-  await js(`document.querySelector('.titlebar button').click()`)
+  await js(`document.querySelector('aside footer button').click()`)
   await sleep(400)
+  // The window has no Windows frame: its own buttons must be there, and the
+  // title bar must be what it is dragged by.
+  console.log('window buttons:', await js(`[...document.querySelectorAll('.window .titlebar .chrome button')].map((b) => b.getAttribute('aria-label')).join(', ')`),
+    '| title bar drag:', await js(`getComputedStyle(document.querySelector('.window .titlebar')).getPropertyValue('--wails-draggable').trim()`))
   console.log('theme after toggle:', await js(`document.documentElement.dataset.theme`))
   await shot('smoke-other-theme')
-  await js(`document.querySelector('.titlebar button').click()`)
+  await js(`document.querySelector('aside footer button').click()`)
 
   // Put the volume back the way it was (still without saving).
   await js(`(() => { const s = document.querySelector('input[type=range]'); s.value = s.dataset.was; s.dispatchEvent(new Event('input', { bubbles: true })) })()`)

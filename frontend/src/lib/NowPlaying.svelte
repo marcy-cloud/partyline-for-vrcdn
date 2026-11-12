@@ -2,7 +2,7 @@
   import type { Snippet } from 'svelte'
   import Icon from './Icon.svelte'
   import Sparkline from './Sparkline.svelte'
-  import ThemeToggle from './ThemeToggle.svelte'
+  import WindowControls from './WindowControls.svelte'
   import { transports, type AudioDevice, type Levels, type PlayerState, type Settings, type Status, type Transport } from './api'
 
   interface Props {
@@ -21,6 +21,9 @@
     transport: Transport | ''
     ontransport: (transport: Transport) => void
     onplay: () => void
+    /** Whether the window is maximised, for the maximise button's label. */
+    maximised: boolean
+    ontogglemaximise: () => void
     /** Which tab is showing. The Send tab's content comes in as a snippet. */
     view: 'listen' | 'send'
     onview: (view: 'listen' | 'send') => void
@@ -47,6 +50,8 @@
     transport,
     ontransport,
     onplay,
+    maximised,
+    ontogglemaximise,
     view,
     onview,
     send,
@@ -115,7 +120,8 @@
 
 <main>
   <div class="window">
-    <div class="titlebar">
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="titlebar" ondblclick={(e) => e.target === e.currentTarget && ontogglemaximise()}>
       {#if send}
         <span class="tabs" role="tablist">
           <button class="tab pixel" role="tab" aria-selected={view === 'listen'} onclick={() => onview('listen')}>
@@ -129,8 +135,7 @@
         <span class="pixel" aria-hidden="true">now-playing.exe</span>
       {/if}
       <span class="chrome">
-        <ThemeToggle />
-        <span aria-hidden="true">♡ ✿</span>
+        <WindowControls {maximised} />
       </span>
     </div>
 

@@ -74,8 +74,13 @@ func main() {
 		Height:    620,
 		MinWidth:  720,
 		MinHeight: 480,
-		// --gt-bg of the dark theme, so there's no bright flash while loading.
-		BackgroundColour: application.NewRGB(26, 16, 51),
+		// No Windows title bar: the app draws its own, with its own minimise,
+		// maximise and close buttons, and a rounded border around the lot.
+		// The window itself is see-through so the corners outside that
+		// border show whatever is behind the app.
+		Frameless:        true,
+		BackgroundType:   application.BackgroundTypeTransparent,
+		BackgroundColour: application.NewRGBA(0, 0, 0, 0),
 		URL:              "/",
 	})
 

@@ -14,7 +14,11 @@ sunset gradient, squishy candy buttons and little retro windows.
   component's scoped `<style>`.
 - **Themes:** light ("Pastel Dream") and dark ("Midnight Mall"), switched by
   `data-theme` on `<html>`. The first run follows the system setting; the ☾/☀
-  button in the title bar remembers a choice.
+  button in the bottom-left corner remembers a choice.
+- **The window has no Windows frame.** The app's rounded border (`.shell`)
+  is its edge, and the window behind it is transparent. The main panel's
+  title bar holds minimise, maximise and close, and it and the sidebar
+  header are the drag areas (`--wails-draggable`).
 
 ## Rules of thumb
 

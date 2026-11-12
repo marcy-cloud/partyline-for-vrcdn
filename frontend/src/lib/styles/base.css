@@ -10,8 +10,25 @@ body,
   margin: 0;
 }
 
+/* The window has no frame and is see-through; the app's own rounded border
+   (.shell) is its edge. Title bars are what you drag it by. */
+html {
+  background: transparent;
+}
+
+.titlebar {
+  --wails-draggable: drag;
+}
+
+button,
+input,
+select,
+a {
+  --wails-draggable: no-drag;
+}
+
 body {
-  background: var(--gt-bg);
+  background: transparent;
   color: var(--gt-text);
   font: var(--gt-text-body) / 1.45 var(--gt-font-body);
   -webkit-font-smoothing: antialiased;

@@ -190,7 +190,7 @@ const wails: Api = {
 }
 
 /** True inside the Wails window, false in a plain browser (npm run dev). */
-function inWails(): boolean {
+export function inWails(): boolean {
   const w = window as {
     chrome?: { webview?: { postMessage?: unknown } }
     webkit?: { messageHandlers?: { external?: { postMessage?: unknown } } }

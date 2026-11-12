@@ -64,7 +64,6 @@
   <div class="titlebar">
     <h2 id="stream-dialog-title" class="pixel">{isNew ? 'Add stream' : 'Edit stream'}</h2>
     <span class="chrome">
-      <span aria-hidden="true">♡ ✿</span>
       <button type="button" onclick={onclose} aria-label="Close" title="Close">×</button>
     </span>
   </div>

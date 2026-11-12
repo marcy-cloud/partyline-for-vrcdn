@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import { Window } from '@wailsio/runtime'
   import NowPlaying from './lib/NowPlaying.svelte'
   import Send from './lib/Send.svelte'
   import StreamDialog from './lib/StreamDialog.svelte'
@@ -8,6 +9,7 @@
     connect,
     errorText,
     idleState,
+    inWails,
     isCustomSource,
     sendOff,
     silentLevels,
@@ -207,6 +209,17 @@
     else call((a) => a.setVolume(volume))
   }
 
+  // The window has no Windows title bar, so the app tracks this itself.
+  let maximised = $state(false)
+  async function syncMaximised() {
+    if (inWails()) maximised = await Window.IsMaximised()
+  }
+  async function toggleMaximise() {
+    if (!inWails()) return
+    await Window.ToggleMaximise()
+    syncMaximised()
+  }
+
   function onkeydown(e: KeyboardEvent) {
     if (editing || e.ctrlKey || e.metaKey || e.altKey) return
     const target = e.target as HTMLElement
@@ -220,7 +233,7 @@
   const blank: Stream = { id: '', label: '', source: '', transport: 'rtsp' }
 </script>
 
-<svelte:window {onkeydown} />
+<svelte:window {onkeydown} onresize={syncMaximised} />
 
 {#snippet sendPanel()}
   {#if sendInfo}
@@ -238,7 +251,7 @@
 {/snippet}
 
 {#if loaded}
-  <div class="shell">
+  <div class="shell" class:maximised>
     <StreamList
       {streams}
       {player}
@@ -260,6 +273,8 @@
       resumeLabel={resume?.label ?? ''}
       transport={resume && !isCustomSource(resume.source) ? resume.transport : ''}
       ontransport={setTransport}
+      {maximised}
+      ontogglemaximise={toggleMaximise}
       {view}
       onview={(v) => {
         view = v
@@ -294,10 +309,21 @@
 {/if}
 
 <style>
+  /* The edge of the app: the window behind it is see-through. */
   .shell {
     display: grid;
     grid-template-columns: 264px minmax(0, 1fr);
     height: 100%;
+    border: var(--gt-border-width) solid var(--gt-border-strong);
+    border-radius: var(--gt-radius-lg);
+    background: var(--gt-bg);
+    overflow: hidden;
+  }
+
+  /* Filling the screen, corners and border would only leave gaps. */
+  .shell.maximised {
+    border: 0;
+    border-radius: 0;
   }
 
   .toast {

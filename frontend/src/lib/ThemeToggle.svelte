@@ -10,6 +10,6 @@
   }
 </script>
 
-<button onclick={toggle} aria-label="Switch to {other} theme" title="Switch to {other} theme">
+<button class="icon-btn" onclick={toggle} aria-label="Switch to {other} theme" title="Switch to {other} theme">
   <span aria-hidden="true">{theme === 'dark' ? '☀' : '☾'}</span>
 </button>
