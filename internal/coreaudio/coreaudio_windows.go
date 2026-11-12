@@ -1,6 +1,6 @@
 //go:build windows
 
-// Package coreaudio encodes AAC with Apple's encoder, the one OBS calls
+// The package encodes AAC with Apple's encoder, the one OBS calls
 // "CoreAudio AAC". Apple does not let it be redistributed: it is used only
 // if Apple Application Support (installed with iTunes) is already on the PC.
 package coreaudio

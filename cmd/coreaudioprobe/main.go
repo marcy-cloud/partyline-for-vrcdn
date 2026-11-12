@@ -1,3 +1,5 @@
+//go:build windows
+
 // Command coreaudioprobe is an experiment on the coreaudio branch: can we
 // call Apple's AAC encoder ourselves? It encodes a few seconds of test tone
 // and writes the result as an ADTS file any player can open.
