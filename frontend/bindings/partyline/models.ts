@@ -25,6 +25,11 @@ export interface Bootstrap {
     "engine": string;
     "engineError": string;
     "engineHelp": string;
+
+    /**
+     * Secrets is whether private streams can be saved (see package secret).
+     */
+    "secrets": boolean;
     "notice": string;
     "configPath": string;
 }

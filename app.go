@@ -3,10 +3,13 @@ package main
 import (
 	"context"
 	"errors"
+	"strings"
+	"sync"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"partyline/internal/player"
+	"partyline/internal/secret"
 	"partyline/internal/sender"
 	"partyline/internal/store"
 	"partyline/internal/vrcdn"
@@ -35,6 +38,40 @@ type App struct {
 	engineErr string
 	// notice is a non-fatal startup problem, e.g. an unreadable config.
 	notice string
+
+	// hidden is the name of the private stream being played, if any. It is
+	// removed from everything sent to the UI.
+	hiddenMu sync.Mutex
+	hidden   string
+}
+
+// masked stands in for a private stream's name wherever it would show.
+const masked = "•••"
+
+// scrub removes the private stream name from a state on its way to the UI.
+func (a *App) scrub(s player.State) player.State {
+	a.hiddenMu.Lock()
+	hidden := a.hidden
+	a.hiddenMu.Unlock()
+	if hidden != "" {
+		s.URL = strings.ReplaceAll(s.URL, hidden, masked)
+		s.Message = strings.ReplaceAll(s.Message, hidden, masked)
+	}
+	return s
+}
+
+// public returns a stream as the UI may see it: without its protected key.
+func public(st store.Stream) store.Stream {
+	st.Key = ""
+	return st
+}
+
+func publicAll(streams []store.Stream) []store.Stream {
+	out := make([]store.Stream, len(streams))
+	for i, st := range streams {
+		out[i] = public(st)
+	}
+	return out
 }
 
 // Bootstrap is everything the UI needs to draw its first frame.
@@ -46,8 +83,10 @@ type Bootstrap struct {
 	Engine     string               `json:"engine"`
 	EngineErr  string               `json:"engineError"`
 	EngineHelp string               `json:"engineHelp"`
-	Notice     string               `json:"notice"`
-	ConfigPath string               `json:"configPath"`
+	// Secrets is whether private streams can be saved (see package secret).
+	Secrets    bool   `json:"secrets"`
+	Notice     string `json:"notice"`
+	ConfigPath string `json:"configPath"`
 }
 
 func NewApp() *App { return &App{} }
@@ -76,7 +115,7 @@ func (a *App) ServiceStartup(context.Context, application.ServiceOptions) error 
 	_ = engine.SetAudioDevice(settings.AudioDevice)
 
 	a.ctl = player.NewController(engine, controllerOptions(settings), player.DefaultTuning(), player.Hooks{
-		State:  func(s player.State) { emit(eventState, s) },
+		State:  func(s player.State) { emit(eventState, a.scrub(s)) },
 		Levels: func(l player.Levels) { emit(eventLevels, l) },
 		Devices: func() {
 			if devices, err := engine.AudioDevices(); err == nil {
@@ -125,7 +164,8 @@ func (a *App) ready() error {
 // Bootstrap returns the initial UI data.
 func (a *App) Bootstrap() Bootstrap {
 	b := Bootstrap{
-		Streams:    a.store.Streams(),
+		Streams:    publicAll(a.store.Streams()),
+		Secrets:    secret.Supported(),
 		Settings:   a.store.Settings(),
 		State:      player.State{Status: player.Idle, BufferMs: -1},
 		Devices:    []player.AudioDevice{},
@@ -137,7 +177,7 @@ func (a *App) Bootstrap() Bootstrap {
 		b.EngineHelp = player.LibraryHelp()
 		return b
 	}
-	b.State = a.ctl.State()
+	b.State = a.scrub(a.ctl.State())
 	b.Engine = a.engine.Describe()
 	if devices, err := a.engine.AudioDevices(); err == nil {
 		b.Devices = devices
@@ -146,20 +186,45 @@ func (a *App) Bootstrap() Bootstrap {
 }
 
 // SaveStream creates (empty ID) or updates a saved stream.
+//
+// For a private stream, Source carries the key as typed and is protected
+// before it is stored; left empty on an update, the saved key is kept.
 func (a *App) SaveStream(in store.Stream) (store.Stream, error) {
-	return a.store.SaveStream(in)
+	in.Key = ""
+	if in.Private {
+		typed := strings.TrimSpace(in.Source)
+		in.Source = ""
+		if typed == "" {
+			if old, ok := a.store.Stream(in.ID); ok && old.Private {
+				in.Key = old.Key
+			}
+		} else {
+			src, err := vrcdn.Parse(typed)
+			if err != nil {
+				return store.Stream{}, err
+			}
+			if src.Name == "" {
+				return store.Stream{}, errors.New("a private stream is a VRCDN stream key, not a URL to somewhere else")
+			}
+			if in.Key, err = secret.Protect(src.Name); err != nil {
+				return store.Stream{}, err
+			}
+		}
+	}
+	saved, err := a.store.SaveStream(in)
+	return public(saved), err
 }
 
 // DeleteStream removes a saved stream and returns the remaining list.
 func (a *App) DeleteStream(id string) ([]store.Stream, error) {
 	err := a.store.DeleteStream(id)
-	return a.store.Streams(), err
+	return publicAll(a.store.Streams()), err
 }
 
 // MoveStream repositions a saved stream and returns the reordered list.
 func (a *App) MoveStream(id string, to int) ([]store.Stream, error) {
 	err := a.store.MoveStream(id, to)
-	return a.store.Streams(), err
+	return publicAll(a.store.Streams()), err
 }
 
 // Play switches playback to a saved stream.
@@ -171,10 +236,21 @@ func (a *App) Play(id string) error {
 	if !ok {
 		return errors.New("that stream no longer exists")
 	}
-	src, err := vrcdn.Parse(st.Source)
-	if err != nil {
+	var src vrcdn.Source
+	var err error
+	hidden := ""
+	if st.Private {
+		name, err := secret.Reveal(st.Key)
+		if err != nil || name == "" {
+			return errors.New("this private stream's key can't be read on this PC; edit the stream and enter it again")
+		}
+		src, hidden = vrcdn.Source{Name: name}, name
+	} else if src, err = vrcdn.Parse(st.Source); err != nil {
 		return err
 	}
+	a.hiddenMu.Lock()
+	a.hidden = hidden
+	a.hiddenMu.Unlock()
 	target := player.Target{
 		StreamID: st.ID,
 		Label:    st.Label,

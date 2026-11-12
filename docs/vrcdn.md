@@ -187,8 +187,9 @@ On one stream, from one Windows PC, on 2026-11-10 and 2026-11-11:
 ## What this means for PartyLine
 
 - **Private streams are the intended source.** A private key is both the key
-  and the stream name, so it is a secret: avoid showing it in screenshots,
-  logs or the window title.
+  and the stream name, so it is a secret. A stream saved as "Private" has
+  its name encrypted in the settings file (as the sender's key is) and
+  masked as ••• wherever the player would show it.
 - **A sender has clear targets**: RTMP to `ingest.vrcdn.live` or a regional
   ingest, AAC at 48 kHz, 320 kbps or less, and no video needed.
 - **RTSP on port 554 being blocked is common enough to be in the wiki.** Our

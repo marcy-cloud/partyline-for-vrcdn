@@ -6,4 +6,7 @@ package secret
 import "errors"
 
 // ErrUnsupported is returned where there is no way to protect a secret yet.
+// Supported reports whether Protect and Reveal work on this system.
+func Supported() bool { return supported }
+
 var ErrUnsupported = errors.New("storing a secret is not supported on this system yet")

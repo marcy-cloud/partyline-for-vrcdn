@@ -8,12 +8,14 @@
     index: number
     count: number
     canPlay: boolean
+    /** Whether private streams can be saved here (needs key protection). */
+    canProtect: boolean
     onsave: (stream: Stream, play: boolean) => Promise<void>
     ondelete: (id: string) => Promise<void>
     onmove: (id: string, to: number) => Promise<void>
     onclose: () => void
   }
-  let { stream, index, count, canPlay, onsave, ondelete, onmove, onclose }: Props = $props()
+  let { stream, index, count, canPlay, canProtect, onsave, ondelete, onmove, onclose }: Props = $props()
 
   let dialog: HTMLDialogElement
   let draft = $state<Stream>({ id: '', label: '', source: '', transport: 'rtsp' })
@@ -22,7 +24,10 @@
   let saving = $state(false)
 
   let isNew = $derived(draft.id === '')
-  let custom = $derived(isCustomSource(draft.source) && !draft.source.includes('vrcdn.live'))
+  let custom = $derived(!draft.private && isCustomSource(draft.source) && !draft.source.includes('vrcdn.live'))
+  // Editing a stream that is already private: its key is saved and hidden,
+  // and stays as it is unless a new one is typed.
+  let keySaved = $derived(!!stream?.private && !isNew)
   let hint = $derived(transports.find((t) => t.value === draft.transport)?.hint ?? '')
 
   $effect(() => {
@@ -66,18 +71,33 @@
   <form onsubmit={submit}>
 
     <label class="field">
-      <span>Stream name or URL</span>
+      <span>{draft.private ? 'Private stream key' : 'Stream name or URL'}</span>
       <!-- svelte-ignore a11y_autofocus -->
       <input
         class="input mono"
+        type={draft.private ? 'password' : 'text'}
         bind:value={draft.source}
-        placeholder="performer_name, or any VRCDN URL"
+        placeholder={draft.private
+          ? keySaved
+            ? 'Saved · type to replace'
+            : 'From the Private tab of the VRCDN panel'
+          : 'performer_name, or any VRCDN URL'}
         spellcheck="false"
         autocomplete="off"
         autofocus
-        required
+        required={!(draft.private && keySaved)}
       />
     </label>
+
+    {#if canProtect}
+      <label class="private">
+        <input type="checkbox" bind:checked={draft.private} />
+        <span>
+          Private stream
+          <small>The key is stored encrypted and never shown, here or while playing.</small>
+        </span>
+      </label>
+    {/if}
 
     <label class="field">
       <span>Label <em>(optional)</em></span>
@@ -184,6 +204,57 @@
     min-height: 18px;
     color: var(--gt-text-muted);
     font-size: var(--gt-text-small);
+  }
+
+  /* The Private switch, drawn like the ones on the main panel. */
+  .private {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--gt-space-3);
+    font-weight: 700;
+    font-size: var(--gt-text-small);
+  }
+
+  .private small {
+    display: block;
+    min-height: 0;
+    font-weight: 400;
+  }
+
+  .private input {
+    appearance: none;
+    position: relative;
+    flex: none;
+    width: 38px;
+    height: 22px;
+    margin: 0;
+    border: var(--gt-border-width) solid var(--gt-border);
+    border-radius: var(--gt-radius-pill);
+    background: var(--gt-surface-raised);
+    cursor: pointer;
+    transition: background var(--gt-dur-base);
+  }
+
+  .private input::before {
+    content: '';
+    position: absolute;
+    top: 1px;
+    left: 1px;
+    width: 16px;
+    height: 16px;
+    border: var(--gt-border-width) solid var(--gt-lavender);
+    border-radius: 50%;
+    background: var(--gt-white);
+    transition: translate var(--gt-dur-base) var(--gt-ease-pop);
+  }
+
+  .private input:checked {
+    border-color: var(--gt-lip);
+    background: var(--gt-mint);
+  }
+
+  .private input:checked::before {
+    translate: 16px 0;
   }
 
   .error {

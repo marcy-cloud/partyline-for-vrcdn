@@ -49,7 +49,21 @@ export interface Stream {
 
     /**
      * Source is a VRCDN stream name, or a full URL for non-VRCDN streams.
+     * Empty for a private stream, whose name is a secret and lives in Key.
      */
     "source": string;
     "transport": vrcdn$0.Transport;
+
+    /**
+     * Private marks a VRCDN private stream. Its name doubles as the key
+     * that lets anyone send to it, so it is never stored or shown in the
+     * clear.
+     */
+    "private"?: boolean;
+
+    /**
+     * Key is a private stream's name in protected form (see package
+     * secret). It never leaves the backend.
+     */
+    "key"?: string;
 }

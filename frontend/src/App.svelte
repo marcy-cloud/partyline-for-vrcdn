@@ -50,6 +50,7 @@
   let engine = $state('')
   let engineError = $state('')
   let engineHelp = $state('')
+  let canProtect = $state(false)
   let editing = $state.raw<Stream | null>(null)
   let toast = $state('')
   let toastTimer: ReturnType<typeof setTimeout> | undefined
@@ -137,6 +138,7 @@
       engine = boot.engine
       engineError = boot.engineError
       engineHelp = boot.engineHelp
+      canProtect = boot.secrets
       applyState(boot.state)
       if (boot.notice) notify(boot.notice)
       sendInfo = await api.sendInfo()
@@ -279,6 +281,7 @@
     index={editingIndex}
     count={streams.length}
     canPlay={!engineError}
+    {canProtect}
     onsave={saveStream}
     ondelete={deleteStream}
     onmove={moveStream}

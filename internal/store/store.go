@@ -25,8 +25,16 @@ type Stream struct {
 	// Label is what the VJ sees in the list, e.g. the performer's name.
 	Label string `json:"label"`
 	// Source is a VRCDN stream name, or a full URL for non-VRCDN streams.
+	// Empty for a private stream, whose name is a secret and lives in Key.
 	Source    string          `json:"source"`
 	Transport vrcdn.Transport `json:"transport"`
+	// Private marks a VRCDN private stream. Its name doubles as the key
+	// that lets anyone send to it, so it is never stored or shown in the
+	// clear.
+	Private bool `json:"private,omitempty"`
+	// Key is a private stream's name in protected form (see package
+	// secret). It never leaves the backend.
+	Key string `json:"key,omitempty"`
 }
 
 // Settings are the player preferences.
@@ -184,14 +192,24 @@ func (s *Store) Stream(id string) (Stream, bool) {
 // SaveStream validates and stores a stream. An empty ID creates a new entry;
 // otherwise the existing entry is updated in place.
 func (s *Store) SaveStream(in Stream) (Stream, error) {
-	src, err := vrcdn.Parse(in.Source)
-	if err != nil {
-		return Stream{}, err
-	}
-	in.Source = src.Canonical()
 	in.Label = strings.TrimSpace(in.Label)
-	if in.Label == "" {
-		in.Label = src.Display()
+	if in.Private {
+		if in.Key == "" {
+			return Stream{}, errors.New("enter the private stream key")
+		}
+		in.Source = ""
+		if in.Label == "" {
+			in.Label = "Private stream"
+		}
+	} else {
+		src, err := vrcdn.Parse(in.Source)
+		if err != nil {
+			return Stream{}, err
+		}
+		in.Source, in.Key = src.Canonical(), ""
+		if in.Label == "" {
+			in.Label = src.Display()
+		}
 	}
 	if !in.Transport.Valid() {
 		in.Transport = vrcdn.RTSP

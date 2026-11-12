@@ -8,7 +8,7 @@ export type Transport = 'rtsp' | 'rtsp-udp' | 'rtsp-tcp' | 'flv' | 'mpegts'
 
 // label is for the dialog's menu, short for the narrow list rows.
 export const transports: { value: Transport; label: string; short: string; hint: string }[] = [
-  { value: 'rtsp', label: 'RTSP', short: 'RTSP', hint: 'Tries UDP first for the lowest latency, then falls back to TCP' },
+  { value: 'rtsp', label: 'RTSP', short: 'RTSP', hint: 'Tries UDP for the lowest latency, then TCP, then MPEG-TS' },
   { value: 'rtsp-udp', label: 'RTSP · UDP only', short: 'UDP only', hint: 'Lowest latency; often blocked by routers' },
   { value: 'rtsp-tcp', label: 'RTSP · TCP only', short: 'TCP only', hint: 'Works almost everywhere' },
   { value: 'flv', label: 'FLV', short: 'FLV', hint: 'Over HTTPS; use if RTSP is blocked' },
@@ -22,9 +22,15 @@ export function transportLabel(t: Transport): string {
 export interface Stream {
   id: string
   label: string
-  /** VRCDN stream name, or a full URL for non-VRCDN streams. */
+  /**
+   * VRCDN stream name, or a full URL for non-VRCDN streams. For a private
+   * stream it is always '' coming from the backend; going to the backend it
+   * carries a newly typed key, or '' to keep the saved one.
+   */
   source: string
   transport: Transport
+  /** A VRCDN private stream: its name is a secret, stored encrypted. */
+  private?: boolean
 }
 
 export const isCustomSource = (source: string) => source.includes('://')
@@ -106,6 +112,8 @@ export interface Bootstrap {
   engine: string
   engineError: string
   engineHelp: string
+  /** Whether private streams can be saved on this system. */
+  secrets: boolean
   notice: string
   configPath: string
 }

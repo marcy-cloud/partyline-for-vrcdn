@@ -144,6 +144,7 @@ export function createMock(): Api {
         devices: noEngine ? [] : devices,
         engine: noEngine ? '' : 'mpv v0.40.0 (mock)',
         engineError: noEngine ? 'libmpv was not found (looked for libmpv-2.dll, mpv-2.dll)' : '',
+        secrets: true,
         engineHelp: noEngine
           ? 'Put libmpv-2.dll next to this program (it is inside the mpv-dev-x86_64 download from the mpv Windows builds), then restart.'
           : '',
@@ -152,8 +153,11 @@ export function createMock(): Api {
       }
     },
     async saveStream(s) {
-      if (!s.source.trim()) throw 'enter a stream name or URL'
-      const saved = { ...s, id: s.id || crypto.randomUUID(), label: s.label.trim() || s.source.trim() }
+      const old = streams.find((x) => x.id === s.id)
+      if (!s.source.trim() && !(s.private && old?.private)) throw 'enter a stream name or URL'
+      const saved = s.private
+        ? { ...s, id: s.id || crypto.randomUUID(), source: '', label: s.label.trim() || 'Private stream' }
+        : { ...s, id: s.id || crypto.randomUUID(), label: s.label.trim() || s.source.trim() }
       streams = s.id ? streams.map((x) => (x.id === s.id ? saved : x)) : [...streams, saved]
       return saved
     },

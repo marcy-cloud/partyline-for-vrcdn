@@ -3,6 +3,7 @@ package store
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"partyline/internal/vrcdn"
@@ -236,5 +237,32 @@ func TestSendSettingsRoundTrip(t *testing.T) {
 	again, err := Open(path)
 	if err != nil || again.Send() != want {
 		t.Fatalf("reloaded %+v, %v; want %+v", again.Send(), err, want)
+	}
+}
+
+func TestPrivateStream(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.json")
+	s, _ := Open(path)
+
+	if _, err := s.SaveStream(Stream{Private: true, Source: "would-be-plain"}); err == nil {
+		t.Fatal("a private stream without a protected key must be refused")
+	}
+	saved, err := s.SaveStream(Stream{Private: true, Source: "typed-key-must-not-be-kept", Key: "cHJvdGVjdGVk"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved.Source != "" || saved.Key != "cHJvdGVjdGVk" || saved.Label != "Private stream" {
+		t.Errorf("saved %+v", saved)
+	}
+	raw, _ := os.ReadFile(path)
+	if strings.Contains(string(raw), "typed-key-must-not-be-kept") {
+		t.Error("the plain key reached the config file")
+	}
+
+	// Making it an ordinary stream again drops the key.
+	saved.Private, saved.Source = false, "dja"
+	public, err := s.SaveStream(saved)
+	if err != nil || public.Key != "" || public.Source != "dja" {
+		t.Errorf("made public: %+v, %v", public, err)
 	}
 }

@@ -47,3 +47,5 @@ func take(b windows.DataBlob) []byte {
 	defer windows.LocalFree(windows.Handle(unsafe.Pointer(b.Data)))
 	return append([]byte(nil), unsafe.Slice(b.Data, b.Size)...)
 }
+
+const supported = true

@@ -68,6 +68,9 @@ export function SaveSendSettings($in: $models.SendSettings): $CancellablePromise
 
 /**
  * SaveStream creates (empty ID) or updates a saved stream.
+ * 
+ * For a private stream, Source carries the key as typed and is protected
+ * before it is stored; left empty on an update, the saved key is kept.
  */
 export function SaveStream($in: store$0.Stream): $CancellablePromise<store$0.Stream> {
     return $Call.ByID(4226608368, $in);

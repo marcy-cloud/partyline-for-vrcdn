@@ -17,6 +17,9 @@ else to install.
 - **Saved streams.** Paste a stream name or any URL from the VRCDN page
   (RTSP, RTSPT, FLV, MPEG-TS, RTMP, WSS); it is reduced to the stream name.
   Non-VRCDN `rtsp://`/`https://`/… URLs are kept as-is.
+- **Private streams.** Tick "Private stream" when adding one and its key is
+  stored encrypted and never shown again: not in the list, not in the
+  address under the title, not in the settings file.
 - **One-click switching.** Click a stream, or press `1`–`9`, to cut to it.
 - **Send, too.** On Windows a Send tab pushes audio only from an input
   device to VRCDN (AAC, 48 kHz, up to 320 kbps, no video), so a DJ can feed

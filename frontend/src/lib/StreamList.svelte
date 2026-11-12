@@ -17,6 +17,7 @@
   const hasFlair = (s: Stream) => flaired.has(s.source.toLowerCase())
 
   function detail(s: Stream): string {
+    if (s.private) return `Private · ${transportLabel(s.transport)}`
     if (!isCustomSource(s.source)) return `${s.source} · ${transportLabel(s.transport)}`
     try {
       return new URL(s.source).host
