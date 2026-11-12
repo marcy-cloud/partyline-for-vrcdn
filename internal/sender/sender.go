@@ -49,6 +49,38 @@ type Config struct {
 	Device string
 	// BitrateKbps is the AAC bitrate.
 	BitrateKbps int
+	// Encoder is an Encoder.ID; "" means the default.
+	Encoder string
+}
+
+// Encoder is a choice of AAC encoder.
+type Encoder struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// The AAC encoders. FFmpeg's is built in and always there. Apple's, which
+// OBS calls CoreAudio AAC, is used only if Apple's own software (iTunes)
+// has put it on the PC: it may not be redistributed.
+var (
+	EncoderFFmpeg    = Encoder{ID: "ffmpeg", Name: "FFmpeg AAC"}
+	EncoderCoreAudio = Encoder{ID: "coreaudio", Name: "CoreAudio AAC (Apple)"}
+)
+
+// Encoders lists the encoders that can be used on this PC, default first.
+func Encoders() []Encoder {
+	if coreAudioInstalled() {
+		return []Encoder{EncoderFFmpeg, EncoderCoreAudio}
+	}
+	return []Encoder{EncoderFFmpeg}
+}
+
+// openSession starts a connection with the encoder the config asks for.
+func openSession(cfg Config) (session, error) {
+	if cfg.Encoder == EncoderCoreAudio.ID {
+		return openCoreAudio(cfg)
+	}
+	return openMPV(cfg)
 }
 
 // Bitrates are the AAC bitrates offered, in kbps. VRCDN's limit is 320.
@@ -96,7 +128,7 @@ type Sender struct {
 
 // New returns an idle sender.
 func New(tuning Tuning, hooks Hooks) *Sender {
-	return &Sender{hooks: hooks, tuning: tuning, open: openMPV, state: State{Status: Off}}
+	return &Sender{hooks: hooks, tuning: tuning, open: openSession, state: State{Status: Off}}
 }
 
 // State returns the current snapshot.
@@ -303,11 +335,14 @@ func explain(detail string) string {
 	switch {
 	case detail == "":
 		return "The connection to the server was lost"
-	case has("auth failed", "invalid stream key", "code:403", "unauthorized"):
+	case has("stream is locked"):
+		return "This stream key is already in use. Is something else sending to it? If it only just stopped, give it a moment."
+	case has("auth failed", "invalid stream key", "code:403", "unauthorized", "badauth"):
 		return "The server refused the stream key. Check it against the VRCDN panel."
 	case has("netstream.publish", "badname", "rejected"):
 		return "The server refused the stream. Is something else already sending to this key?"
-	case has("failed to resolve", "cannot open connection", "connection refused", "network is unreachable", "timed out"):
+	case has("failed to resolve", "cannot open connection", "connection refused", "network is unreachable", "timed out",
+		"no such host", "dial tcp", "deadline exceeded"):
 		return "Can't reach the server"
 	case has("could not find audio only device"):
 		return "The input device isn't available. Is it plugged in?"

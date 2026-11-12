@@ -29,6 +29,7 @@ func main() {
 	ingest := flag.String("ingest", vrcdn.Ingests[0].URL, "RTMP ingest address")
 	keyFile := flag.String("key-file", "", "file holding the stream key")
 	bitrate := flag.Int("bitrate", sender.Bitrates[0], "AAC bitrate in kbps")
+	encoder := flag.String("encoder", sender.EncoderFFmpeg.ID, "ffmpeg or coreaudio")
 	duration := flag.Duration("for", 0, "stop after this long (default: until Ctrl+C)")
 	flag.Parse()
 
@@ -80,8 +81,8 @@ func main() {
 		},
 	})
 
-	fmt.Printf("sending %s\n     to %s/<key> (AAC %d kbps, 48 kHz stereo, no video)\n", input.Name, strings.TrimRight(*ingest, "/"), *bitrate)
-	err = s.Start(sender.Config{Ingest: *ingest, Key: strings.TrimSpace(string(raw)), Device: input.ID, BitrateKbps: *bitrate})
+	fmt.Printf("sending %s\n     to %s/<key> (%s AAC %d kbps, 48 kHz stereo, no video)\n", input.Name, strings.TrimRight(*ingest, "/"), *encoder, *bitrate)
+	err = s.Start(sender.Config{Ingest: *ingest, Key: strings.TrimSpace(string(raw)), Device: input.ID, BitrateKbps: *bitrate, Encoder: *encoder})
 	if err != nil {
 		fail(err.Error())
 	}

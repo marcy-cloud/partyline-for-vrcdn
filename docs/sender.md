@@ -58,7 +58,8 @@ pre-feed. Context: [use-case.md](use-case.md), [vrcdn.md](vrcdn.md).
   be sent. Loopback needs our own WASAPI capture code. Until then a virtual
   audio cable does the job.
 - **A level meter before going live.** The meter only moves while on air.
-- **CoreAudio AAC.** Only FFmpeg's AAC encoder is available; see below.
+- **CoreAudio AAC** is built on the `coreaudio` branch, not on `main`; see
+  [coreaudio.md](coreaudio.md) there.
 - **Linux and macOS.** Capture uses DirectShow, so the Send tab is hidden
   elsewhere.
 - **Long runs**, a real mixer as the input, and what listeners hear when the

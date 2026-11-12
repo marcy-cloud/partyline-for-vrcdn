@@ -105,6 +105,8 @@ type Send struct {
 	BitrateKbps int `json:"bitrateKbps"`
 	// TargetID is the send target last chosen.
 	TargetID string `json:"targetId"`
+	// Encoder is the AAC encoder to send with; "" means the default.
+	Encoder string `json:"encoder,omitempty"`
 	// Key is where the single stream key lived before there were send
 	// targets. Open turns it into a target; nothing writes it any more.
 	Key string `json:"key,omitempty"`

@@ -33,6 +33,13 @@ named at the end of that release's copy of this file.
 To use a different libmpv, put its `libmpv-2.dll` next to the exe or set
 `LIBMPV_PATH`; either takes priority over the built-in copy.
 
+## Apple's AAC encoder (not included)
+
+The sender can encode with Apple's AAC encoder ("CoreAudio AAC") when Apple
+Application Support, which is installed with iTunes, is already on the PC.
+PartyLine loads Apple's `CoreAudioToolbox.dll` from where Apple installed
+it. It is not part of PartyLine and is not distributed with it.
+
 ## Go modules
 
 | Module | Licence |
@@ -40,6 +47,10 @@ To use a different libmpv, put its `libmpv-2.dll` next to the exe or set
 | github.com/wailsapp/wails/v3 | MIT |
 | github.com/ebitengine/purego | Apache-2.0 |
 | github.com/go-ole/go-ole | MIT |
+| github.com/bluenviron/gortmplib | MIT |
+| github.com/bluenviron/mediacommon/v2 | MIT |
+| github.com/abema/go-mp4 | MIT |
+| github.com/google/uuid | BSD-3-Clause |
 | golang.org/x/sys | BSD-3-Clause |
 | Go standard library and runtime | BSD-3-Clause |
 

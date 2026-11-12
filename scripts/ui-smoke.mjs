@@ -169,19 +169,31 @@ try {
       const inputWas = await js(`document.querySelector('.controls .control select').value`)
       await setValue('.controls .control select', 'test-tone', 'change')
       await sleep(300)
-      await js(`document.querySelector('.go-live').click()`)
-      let on = null
-      for (let i = 0; i < 16 && on?.badge !== 'On air'; i++) {
-        await sleep(500)
+      // Go on air with each encoder this PC has (CoreAudio only shows where
+      // Apple's encoder is installed).
+      const encoderSelect = `[...document.querySelectorAll('.controls .control')].find((c) => /Encoder/.test(c.innerText))?.querySelector('select')`
+      const encoders = (await js(`${encoderSelect} ? [...${encoderSelect}.options].map((o) => o.value).join(',') : ''`)) || 'ffmpeg'
+      const encoderWas = await js(`${encoderSelect}?.value ?? ''`)
+      for (const encoder of encoders.split(',')) {
+        if (encoderWas !== '') {
+          await js(`(() => { const el = ${encoderSelect}; el.value = ${JSON.stringify(encoder)}; el.dispatchEvent(new Event('change', { bubbles: true })) })()`)
+          await sleep(400)
+        }
+        await js(`document.querySelector('.go-live').click()`)
+        let on = null
+        for (let i = 0; i < 16 && on?.badge !== 'On air'; i++) {
+          await sleep(500)
+          on = await sendSnapshot()
+        }
+        await sleep(1500)
         on = await sendSnapshot()
+        console.log(`went live with ${encoder}:`, on.badge, '|', on.level, '|', on.message, '|', await js(`document.querySelector('.sending .sub')?.innerText.trim()`))
+        await shot(`smoke-on-air-${encoder}`)
+        await js(`document.querySelector('.go-live').click()`)
+        await sleep(1200)
+        console.log('after stop:', (await sendSnapshot()).badge)
       }
-      await sleep(1500)
-      on = await sendSnapshot()
-      console.log('went live:', on.badge, '|', on.level, '|', on.message)
-      await shot('smoke-on-air')
-      await js(`document.querySelector('.go-live').click()`)
-      await sleep(800)
-      console.log('after stop:', (await sendSnapshot()).badge)
+      if (encoderWas !== '') await js(`(() => { const el = ${encoderSelect}; el.value = ${JSON.stringify(encoderWas)}; el.dispatchEvent(new Event('change', { bubbles: true })) })()`)
       await setValue('.controls .control select', inputWas, 'change')
       // Remove the target again, so the key is not left saved.
       await js(`[...document.querySelectorAll('.targets li')].find((li) => /Smoke test target/.test(li.innerText)).querySelector('.edit').click()`); await sleep(500)

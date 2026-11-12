@@ -253,9 +253,13 @@ func TestParseDevices(t *testing.T) {
 // Messages as libmpv and ffmpeg actually word them.
 func TestExplain(t *testing.T) {
 	cases := map[string]string{
-		`rtmp: Server error: [auth failed]: code:403 msg:"Invalid stream key or user disabled" · could not open 'rtmp://x/live/<key>'`:                          "refused the stream key",
-		`tcp: Failed to resolve hostname nope.invalid · rtmp: Cannot open connection tcp://nope.invalid:1935 · could not open 'rtmp://nope.invalid/live/<key>'`: "Can't reach the server",
-		`dshow: Could not find audio only device with name [@device_cm_{0}] among source devices of type audio. · avformat_open_input() failed`:                 "isn't available",
+		`rtmp: Server error: [auth failed]: code:403 msg:"Invalid stream key or user disabled" · could not open 'rtmp://x/live/<key>'`:                                                               "refused the stream key",
+		`tcp: Failed to resolve hostname nope.invalid · rtmp: Cannot open connection tcp://nope.invalid:1935 · could not open 'rtmp://nope.invalid/live/<key>'`:                                      "Can't reach the server",
+		`dshow: Could not find audio only device with name [@device_cm_{0}] among source devices of type audio. · avformat_open_input() failed`:                                                      "isn't available",
+		`bad result: &{3 16777216 onStatus 5 [<nil> [{clientid 0} {code NetStream.Publish.BadAuth} {description [auth failed]: code:403 msg:"Invalid stream key or user disabled"} {level error}]]}`: "refused the stream key",
+		`bad result: &{3 16777216 onStatus 5 [<nil> [{code NetStream.Publish.BadAuth} {description [auth failed]: code:403 msg:"Stream is locked"} {level error}]]}`:                                 "already in use",
+		`rtmp: Server error: [auth failed]: code:403 msg:"Stream is locked" · could not open 'rtmp://x/live/<key>'`:                                                                                  "already in use",
+		"dial tcp: lookup nope.invalid: no such host": "Can't reach the server",
 		"":                             "was lost",
 		"something nobody anticipated": "something nobody anticipated",
 	}

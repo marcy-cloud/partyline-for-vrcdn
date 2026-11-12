@@ -26,6 +26,9 @@
   // Where it goes: the send target chosen in the wing on the right.
   let target = $derived(info.targets.find((t) => t.id === info.settings.targetId))
   let busy = $derived(current.status === 'connecting' || current.status === 'live' || current.status === 'reconnecting')
+  let encoderName = $derived(
+    (info.encoders.find((e) => e.id === info.settings.encoder)?.name ?? 'AAC').replace(' (Apple)', ''),
+  )
   let ingestName = $derived(info.ingests.find((i) => i.url === target?.ingest)?.name ?? '')
 
   // The saved input may be unplugged; keep it listed so the choice survives.
@@ -62,7 +65,7 @@
   <h1 class:quiet={!target}>{target ? target.label : 'Nowhere to send yet'}</h1>
   <p class="sub">
     {#if target}
-      Audio only · AAC {info.settings.bitrateKbps} kbps · 48 kHz stereo · {ingestName}
+      Audio only · {encoderName} {info.settings.bitrateKbps} kbps · 48 kHz stereo · {ingestName}
     {:else}
       Add a stream key under "Send to" on the right.
     {/if}
@@ -139,6 +142,23 @@
       {/each}
     </select>
   </label>
+
+
+  {#if info.encoders.length > 1}
+    <label class="control" title="CoreAudio is Apple's encoder, the one OBS offers when iTunes is installed">
+      <span>Encoder</span>
+      <select
+        class="input wide"
+        value={info.settings.encoder}
+        onchange={(e) => onsettings({ encoder: e.currentTarget.value })}
+        disabled={busy}
+      >
+        {#each info.encoders as e (e.id)}
+          <option value={e.id}>{e.name}</option>
+        {/each}
+      </select>
+    </label>
+  {/if}
 </section>
 
 <p class="note">Sends audio only, with no video. For a DJ to VJ link, send to your <b>private</b> stream key.</p>

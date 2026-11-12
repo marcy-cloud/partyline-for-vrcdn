@@ -47,7 +47,7 @@ export function createMock(): Api {
 
   let send: SendInfo = {
     supported: true,
-    settings: { targetId: 't1', device: 'line-in', bitrateKbps: 320 },
+    settings: { targetId: 't1', device: 'line-in', bitrateKbps: 320, encoder: 'ffmpeg' },
     targets: [
       { id: 't1', label: 'My private feed', ingest: 'rtmp://ingest.vrcdn.live/live' },
       { id: 't2', label: 'Club X guest key', ingest: 'rtmp://uk.ingest.vrcdn.live/live' },
@@ -63,6 +63,10 @@ export function createMock(): Api {
       { name: 'Europe: London', url: 'rtmp://uk.ingest.vrcdn.live/live' },
     ],
     bitrates: [320, 256, 192],
+    encoders: [
+      { id: 'ffmpeg', name: 'FFmpeg AAC' },
+      { id: 'coreaudio', name: 'CoreAudio AAC (Apple)' },
+    ],
   }
   let sendTimers: number[] = []
   let sendListener: (state: SendState) => void = () => {}

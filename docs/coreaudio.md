@@ -1,9 +1,29 @@
-# CoreAudio AAC (investigation, on the `coreaudio` branch)
+# CoreAudio AAC (on the `coreaudio` branch)
 
-Can the sender use Apple's AAC encoder, the one OBS calls "CoreAudio AAC",
-instead of FFmpeg's? Yes: every piece has now been shown to work on its
-own. What is left is assembling them into the app. Nothing here is on
-`main`.
+The sender can use Apple's AAC encoder, the one OBS calls "CoreAudio AAC",
+as an alternative to FFmpeg's. It is built and works; it lives on the
+`coreaudio` branch until it has had more use. This file records how it
+works and what was learned getting there.
+
+## In the app
+
+- The Send tab shows an **Encoder** choice only on PCs where Apple's
+  encoder is installed (it comes with iTunes). FFmpeg AAC stays the default.
+- With CoreAudio chosen, `internal/sender` uses a second kind of session
+  (`coreaudio_windows.go`): libmpv captures the input and writes raw PCM to
+  a local socket; our code reads it a frame at a time, measures the level,
+  encodes with `internal/coreaudio`, and publishes over RTMP with
+  `gortmplib`. It sits behind the same `session` interface as the libmpv
+  path, so reconnecting, giving up after repeated refusals, stall detection
+  and the helper process are shared.
+- Stopping signs off properly (`FCUnpublish`, `deleteStream`) before hanging
+  up.
+
+Tested 2026-11-11: on air in about a second from the console and from the
+real window, with the test tone (-12 dB read back over RTSP) and with a
+DirectShow device; ten start-stop cycles in a row; alternating with the
+FFmpeg encoder back to back; a wrong key and an unreachable server both
+give a clear message and stop.
 
 ## What works
 
@@ -59,21 +79,26 @@ at 30 seconds.
 Worth knowing for any other RTMP client: VRCDN does not refuse a publish
 with a wrong or empty stream name straight away.
 
-## What it would take to finish
+## What VRCDN's ingest does, learned on the way
 
-Each part is proven; this is assembly.
+- **A wrong key** is refused at publish with `NetStream.Publish.BadAuth`,
+  "Invalid stream key or user disabled".
+- **A key already in use** is refused the same way with "Stream is locked".
+  The sender words the two differently.
+- **A publish that never sends audio** leaves the key locked for a little
+  under 30 seconds afterwards, whether or not the client signs off. After a
+  real broadcast that signs off, the key is free at once.
+- **A publish with an empty stream name** is accepted, served, and dropped
+  after 30 seconds (see above).
 
-1. A second kind of session in `internal/sender`: libmpv captures and
-   writes PCM to a local socket; our code reads it in 1024-sample frames,
-   encodes with `internal/coreaudio`, and publishes with the RTMP client.
-   It plugs in behind the existing `session` interface, so reconnecting and
-   giving up after repeated failures come for free.
-2. Levels for the meter, computed from the PCM as it passes (the libmpv
-   meter filter is not in this path).
-3. An "Encoder" choice in the Send tab, shown only when Apple's DLL is
-   found, defaulting to FFmpeg AAC.
-4. Licence check: the RTMP library is MIT and its dependencies would join
-   the bundled notices.
+## Not done
+
+- Not tried on air for long, or with a hardware mixer as the input.
+- Only 16-bit stereo at 48 kHz goes to the encoder, which is what the rest
+  of the sender uses.
+- If the PC is very busy, PCM could queue in the local socket; nothing
+  measures or drains that yet. The FFmpeg path has the same property inside
+  libmpv.
 
 ## Is it worth it
 

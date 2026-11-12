@@ -87,6 +87,8 @@ export interface SendSettings {
   targetId: string
   device: string
   bitrateKbps: number
+  /** Which AAC encoder to send with: an id from SendInfo.encoders. */
+  encoder: string
 }
 
 /** A saved place to send to. The key is never sent back from the backend. */
@@ -108,6 +110,8 @@ export interface SendInfo {
   devices: { id: string; name: string }[]
   ingests: { name: string; url: string }[]
   bitrates: number[]
+  /** AAC encoders usable on this PC, default first; more than one only where Apple's is installed. */
+  encoders: { id: string; name: string }[]
 }
 
 export interface AudioDevice {
@@ -196,6 +200,7 @@ const wails: Api = {
       devices: info.devices ?? [],
       ingests: info.ingests ?? [],
       bitrates: info.bitrates ?? [],
+      encoders: info.encoders ?? [],
     }
   },
   saveSendSettings: (s) => Backend.SaveSendSettings(s) as unknown as Promise<SendSettings>,

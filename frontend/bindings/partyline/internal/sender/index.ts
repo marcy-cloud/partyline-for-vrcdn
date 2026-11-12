@@ -7,5 +7,6 @@ export {
 
 export type {
     Device,
+    Encoder,
     State
 } from "./models.js";

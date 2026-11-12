@@ -48,6 +48,12 @@ export interface SendInfo {
     "devices": sender$0.Device[] | null;
     "ingests": vrcdn$0.Ingest[] | null;
     "bitrates": number[] | null;
+
+    /**
+     * Encoders are the AAC encoders usable on this PC, default first. More
+     * than one only where Apple's encoder is installed.
+     */
+    "encoders": sender$0.Encoder[] | null;
 }
 
 /**
@@ -60,6 +66,11 @@ export interface SendSettings {
     "targetId": string;
     "device": string;
     "bitrateKbps": number;
+
+    /**
+     * Encoder is a sender.Encoder ID.
+     */
+    "encoder": string;
 }
 
 /**

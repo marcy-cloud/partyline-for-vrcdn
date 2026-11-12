@@ -13,6 +13,14 @@ export interface Device {
 }
 
 /**
+ * Encoder is a choice of AAC encoder.
+ */
+export interface Encoder {
+    "id": string;
+    "name": string;
+}
+
+/**
  * State is a snapshot of the sender for the UI.
  */
 export interface State {

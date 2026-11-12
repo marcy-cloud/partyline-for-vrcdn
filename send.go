@@ -24,6 +24,8 @@ type SendSettings struct {
 	TargetID    string `json:"targetId"`
 	Device      string `json:"device"`
 	BitrateKbps int    `json:"bitrateKbps"`
+	// Encoder is a sender.Encoder ID.
+	Encoder string `json:"encoder"`
 }
 
 // SendTarget is a saved place to send to, as the UI sees it. Key only ever
@@ -46,6 +48,9 @@ type SendInfo struct {
 	Devices   []sender.Device `json:"devices"`
 	Ingests   []vrcdn.Ingest  `json:"ingests"`
 	Bitrates  []int           `json:"bitrates"`
+	// Encoders are the AAC encoders usable on this PC, default first. More
+	// than one only where Apple's encoder is installed.
+	Encoders []sender.Encoder `json:"encoders"`
 }
 
 func (a *App) startSender() {
@@ -68,7 +73,12 @@ func knownIngest(url string) string {
 // valid replaced by its default.
 func (a *App) sendSettings() SendSettings {
 	saved := a.store.Send()
-	out := SendSettings{TargetID: saved.TargetID, Device: saved.Device, BitrateKbps: saved.BitrateKbps}
+	out := SendSettings{TargetID: saved.TargetID, Device: saved.Device, BitrateKbps: saved.BitrateKbps, Encoder: saved.Encoder}
+	// An encoder that is gone (iTunes uninstalled) falls back to the default.
+	encoders := sender.Encoders()
+	if !slices.ContainsFunc(encoders, func(e sender.Encoder) bool { return e.ID == out.Encoder }) {
+		out.Encoder = encoders[0].ID
+	}
 	if !slices.Contains(sender.Bitrates, out.BitrateKbps) {
 		out.BitrateKbps = sender.Bitrates[0]
 	}
@@ -104,6 +114,7 @@ func (a *App) SendInfo() SendInfo {
 		Devices:   []sender.Device{},
 		Ingests:   vrcdn.Ingests,
 		Bitrates:  sender.Bitrates,
+		Encoders:  sender.Encoders(),
 	}
 	if info.Supported {
 		info.State = a.send.State()
@@ -116,7 +127,7 @@ func (a *App) SendInfo() SendInfo {
 // time a broadcast starts.
 func (a *App) SaveSendSettings(in SendSettings) (SendSettings, error) {
 	saved := a.store.Send()
-	saved.TargetID, saved.Device, saved.BitrateKbps = in.TargetID, in.Device, in.BitrateKbps
+	saved.TargetID, saved.Device, saved.BitrateKbps, saved.Encoder = in.TargetID, in.Device, in.BitrateKbps, in.Encoder
 	err := a.store.SetSend(saved)
 	return a.sendSettings(), err
 }
@@ -167,6 +178,7 @@ func (a *App) StartSend() error {
 		Key:         key,
 		Device:      settings.Device,
 		BitrateKbps: settings.BitrateKbps,
+		Encoder:     settings.Encoder,
 	})
 }
 

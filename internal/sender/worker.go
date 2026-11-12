@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"sync"
+	"time"
 
 	"partyline/internal/meter"
 )
@@ -36,6 +37,7 @@ type workerConfig struct {
 	Key         string `json:"key"`
 	Device      string `json:"device"`
 	BitrateKbps int    `json:"bitrateKbps"`
+	Encoder     string `json:"encoder"`
 }
 
 // RunWorker is the body of the worker process: it broadcasts what stdin
@@ -67,7 +69,19 @@ func RunWorker(stdin io.Reader, stdout io.Writer) {
 	}
 	// Anything further on stdin is ignored; its end is the signal to stop.
 	_, _ = io.Copy(io.Discard, in)
-	s.Stop()
+
+	// This process exists for one broadcast. If shutting it down cleanly
+	// ever sticks, leave anyway: nobody may be left to notice, since stdin
+	// also ends when the app itself has died.
+	stopped := make(chan struct{})
+	go func() {
+		s.Stop()
+		close(stopped)
+	}()
+	select {
+	case <-stopped:
+	case <-time.After(5 * time.Second):
+	}
 }
 
 // RunList is the body of the listing process.
