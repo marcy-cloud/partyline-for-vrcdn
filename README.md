@@ -24,7 +24,9 @@ else to install.
 - **Send, too.** On Windows a Send tab pushes audio only from an input
   device to VRCDN (AAC, 48 kHz, up to 320 kbps, no video), so a DJ can feed
   VJs and dancers without OBS. Places to send to are saved in a wing on the
-  right, each with its stream key stored encrypted.
+  right, each with its stream key stored encrypted. Where iTunes is
+  installed, Apple's CoreAudio AAC encoder can be chosen instead of the
+  built-in one.
 - **Auto-reconnect.** Keeps retrying while a stream is offline and reconnects
   if it drops or stalls, so audio starts by itself when the performer goes
   live.
@@ -188,6 +190,7 @@ internal/store         saved streams and settings (JSON in the user config dir)
 internal/player        Controller: reconnect, stall detection, catch-up policy
                        MPVEngine: the libmpv-backed implementation of Engine
 internal/sender        Sends audio only to an RTMP ingest, in a helper process
+internal/coreaudio     calls Apple's AAC encoder, where iTunes has installed it
 internal/secret        keeps the stream key encrypted (Windows DPAPI)
 internal/meter         level meter shared by the player and the sender
 internal/libmpv        cgo-free binding to the libmpv client API (purego),

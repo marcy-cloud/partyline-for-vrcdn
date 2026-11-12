@@ -1,9 +1,8 @@
-# CoreAudio AAC (on the `coreaudio` branch)
+# CoreAudio AAC
 
 The sender can use Apple's AAC encoder, the one OBS calls "CoreAudio AAC",
-as an alternative to FFmpeg's. It is built and works; it lives on the
-`coreaudio` branch until it has had more use. This file records how it
-works and what was learned getting there.
+as an alternative to FFmpeg's. This file records how it works and what was
+learned getting there.
 
 ## In the app
 

@@ -58,8 +58,6 @@ pre-feed. Context: [use-case.md](use-case.md), [vrcdn.md](vrcdn.md).
   be sent. Loopback needs our own WASAPI capture code. Until then a virtual
   audio cable does the job.
 - **A level meter before going live.** The meter only moves while on air.
-- **CoreAudio AAC** is built on the `coreaudio` branch, not on `main`; see
-  [coreaudio.md](coreaudio.md) there.
 - **Linux and macOS.** Capture uses DirectShow, so the Send tab is hidden
   elsewhere.
 - **Long runs**, a real mixer as the input, and what listeners hear when the
@@ -70,17 +68,12 @@ pre-feed. Context: [use-case.md](use-case.md), [vrcdn.md](vrcdn.md).
 
 ## Which AAC encoder
 
-- **FFmpeg's built-in AAC** is what the bundled libmpv has, so it is what
-  the sender uses. At 320 kbps, VRCDN's maximum, it is transparent. It is
-  weaker than CoreAudio at low bitrates, which is why nothing below 192 kbps
-  is offered. VRCDN's own troubleshooting page recommends it over CoreAudio
-  when viewers hear audio loss.
-- **CoreAudio AAC** is Apple's encoder. OBS on Windows does not include it:
-  it loads Apple's DLLs if iTunes or Apple Application Support is installed.
-  We cannot ship those DLLs. Supporting it would mean detecting them, calling
-  Apple's AudioConverter API ourselves, and writing our own FLV/RTMP output,
-  because libmpv cannot pass through audio that is already encoded. That is a
-  separate project. When it exists, it becomes a choice next to Quality.
+- **FFmpeg's built-in AAC** is the default and is always available. At
+  320 kbps, VRCDN's maximum, it is transparent. VRCDN's own troubleshooting
+  page recommends it over CoreAudio when viewers hear audio loss.
+- **CoreAudio AAC** is Apple's encoder, the one DJs often pick in OBS. It
+  appears as an Encoder choice on PCs where iTunes has installed it; we
+  cannot ship it. How that path works is in [coreaudio.md](coreaudio.md).
 
 ## To test by hand
 
