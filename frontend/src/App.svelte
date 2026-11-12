@@ -7,6 +7,7 @@
     connect,
     errorText,
     idleState,
+    isCustomSource,
     silentLevels,
     type Api,
     type AudioDevice,
@@ -14,6 +15,7 @@
     type PlayerState,
     type Settings,
     type Stream,
+    type Transport,
   } from './lib/api'
 
   // How many buffer readings the sparkline shows (4 per second).
@@ -106,10 +108,20 @@
     }
   }
 
-  function play(id: string) {
+  function play(id: string, restart = false) {
     // Clicking the stream that's already up shouldn't cut it out.
-    if (player.streamId === id && (player.status === 'playing' || player.status === 'connecting')) return
+    if (!restart && player.streamId === id && (player.status === 'playing' || player.status === 'connecting')) return
     call((a) => a.play(id))
+  }
+
+  // Changing the connection from the main page saves it on the stream and,
+  // if that stream is on, reconnects it the new way straight away.
+  async function setTransport(transport: Transport) {
+    if (!resume) return
+    const saved = await call((a) => a.saveStream({ ...resume, transport }))
+    if (!saved) return
+    streams = streams.map((s) => (s.id === saved.id ? saved : s))
+    if (player.streamId === saved.id && player.status !== 'idle' && player.status !== 'failed') play(saved.id, true)
   }
 
   async function saveStream(stream: Stream, andPlay: boolean) {
@@ -180,6 +192,8 @@
       {engineHelp}
       hasStreams={streams.length > 0}
       resumeLabel={resume?.label ?? ''}
+      transport={resume && !isCustomSource(resume.source) ? resume.transport : ''}
+      ontransport={setTransport}
       onplay={() => resume && play(resume.id)}
       onstop={() => call((a) => a.stop())}
       onresync={() => call((a) => a.resync())}

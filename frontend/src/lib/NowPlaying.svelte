@@ -2,7 +2,7 @@
   import Icon from './Icon.svelte'
   import Sparkline from './Sparkline.svelte'
   import ThemeToggle from './ThemeToggle.svelte'
-  import type { AudioDevice, Levels, PlayerState, Settings, Status } from './api'
+  import { transports, type AudioDevice, type Levels, type PlayerState, type Settings, type Status, type Transport } from './api'
 
   interface Props {
     player: PlayerState
@@ -16,6 +16,9 @@
     hasStreams: boolean
     /** Label of the stream the Play button starts; '' when there is none. */
     resumeLabel: string
+    /** Connection type of that stream; '' when there is none or it is a custom URL. */
+    transport: Transport | ''
+    ontransport: (transport: Transport) => void
     onplay: () => void
     onstop: () => void
     onresync: () => void
@@ -34,6 +37,8 @@
     engineHelp,
     hasStreams,
     resumeLabel,
+    transport,
+    ontransport,
     onplay,
     onstop,
     onresync,
@@ -191,6 +196,25 @@
           >
             <Icon name="resync" />{player.status === 'reconnecting' ? 'Retry now' : 'Resync'}
           </button>
+
+          <label
+            class="connection"
+            title={transport ? `How ${resumeLabel} is pulled from VRCDN` : 'Custom URLs are played exactly as written'}
+          >
+            <span class="pixel" aria-hidden="true">via</span>
+            <select
+              class="input"
+              aria-label="Connection"
+              value={transport}
+              disabled={!transport}
+              onchange={(e) => ontransport(e.currentTarget.value as Transport)}
+            >
+              {#if !transport}<option value="">–</option>{/if}
+              {#each transports as t (t.value)}
+                <option value={t.value}>{t.label}</option>
+              {/each}
+            </select>
+          </label>
         </section>
       {/if}
 
@@ -517,8 +541,22 @@
     min-width: 96px;
   }
 
+  /* Connection type of the current stream, at the far end of the row. */
+  .connection {
+    display: flex;
+    align-items: center;
+    gap: var(--gt-space-2);
+    margin-left: auto;
+    color: var(--gt-text-muted);
+  }
+
+  .connection select {
+    width: 168px;
+  }
+
   .actions {
     display: flex;
+    align-items: center;
     gap: var(--gt-space-2);
     /* Room for the candy button's bottom lip. */
     padding-bottom: var(--gt-space-1);

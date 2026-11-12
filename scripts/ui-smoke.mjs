@@ -1,7 +1,8 @@
 // Smoke test of the real window on Windows. Starts a development build with
 // WebView2's DevTools port open, then drives the UI the way a person would:
-// plays the first saved stream (muted, without saving the volume), stops it,
-// starts it again with the Play button, opens the dialog and switches theme,
+// plays the first saved stream (muted, without saving the volume), switches
+// its connection to MPEG-TS and back, stops it, starts it again with the Play
+// button, opens the dialog and switches theme,
 // saving a screenshot at each step.
 //
 //   go build -tags bundled_libmpv -o bin/dev.exe .
@@ -77,6 +78,8 @@ const snapshot = () => js(`JSON.stringify({
   fonts: [...document.fonts].filter((f) => f.status === 'loaded').map((f) => f.family).filter((v, i, a) => a.indexOf(v) === i),
 })`).then(JSON.parse)
 
+let originalConnection = null
+let restoreConnection = null
 try {
   await js(`new Promise((r) => { const t = setInterval(() => { if (document.querySelector('.shell')) { clearInterval(t); r() } }, 100) })`)
   await sleep(1500)
@@ -94,6 +97,19 @@ try {
       if (i % 4 === 3 || s.badge?.trim() === 'Live') console.log(`t+${(i + 1) / 2}s:`, s.badge?.trim(), '|', s.buffer, '|', s.format, '|', s.level, '|', s.message)
       if (s.badge?.trim() === 'Live' && i >= 5) break
     }
+    // Switch the connection from the main page: it must reconnect by itself.
+    // (Also the way through when RTSP is not answering.)
+    const setConnection = (value) => js(`(() => { const s = document.querySelector('.connection select'); s.value = ${JSON.stringify(value)}; s.dispatchEvent(new Event('change', { bubbles: true })) })()`)
+    originalConnection = await js(`document.querySelector('.connection select').value`)
+    await setConnection('mpegts')
+    let viaTS = null
+    for (let i = 0; i < 20 && viaTS !== 'Live'; i++) {
+      await sleep(500)
+      viaTS = (await snapshot()).badge?.trim()
+    }
+    console.log(`connection ${originalConnection} -> mpegts:`, viaTS, '|', (await snapshot()).format)
+    restoreConnection = () => setConnection(originalConnection)
+
     const playing = await snapshot()
     console.log('playing:', JSON.stringify(playing))
     if (playing.overflow > 0) console.log(`WARNING: the panel overflows by ${playing.overflow}px at the default window size`)
@@ -135,6 +151,12 @@ try {
   await js(`(() => { const s = document.querySelector('input[type=range]'); s.value = s.dataset.was; s.dispatchEvent(new Event('input', { bubbles: true })) })()`)
   await sleep(300)
 } finally {
+  // Leave the saved stream the way it was found.
+  if (restoreConnection) {
+    await js(`[...document.querySelectorAll('.actions .btn')].find((b) => /Stop/.test(b.innerText))?.click()`).catch(() => {})
+    await restoreConnection().catch(() => {})
+    await sleep(500)
+  }
   ws.close()
   app.kill()
   await sleep(500)

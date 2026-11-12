@@ -178,7 +178,7 @@ On one stream, from one Windows PC, on 2026-11-10 and 2026-11-11:
 - **The `vrcdn` demo stream** stands in for a live stream in manual tests,
   over MPEG-TS and FLV only. See [testing.md](testing.md).
 - **Offline should be detected over HTTP.** Because RTSP stays silent for an
-  offline stream, the player currently shows "No audio over UDP, trying TCP"
+  offline stream, the player currently shows "No response over UDP, trying TCP"
   and then a timeout. Checking the stream's `.live.ts` URL would let it say
   "offline" straight away, and would also tell us when RTSP is blocked but
   the stream is up, so it could fall back to MPEG-TS by itself. Not built.

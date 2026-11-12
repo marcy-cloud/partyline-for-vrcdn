@@ -33,7 +33,8 @@ else to install.
   latency, and fall back to TCP if no audio arrives within 4 seconds (many
   routers drop the UDP). Once that has happened, later streams go straight
   to TCP until the app is restarted. Each stream can also be pinned to UDP
-  only, TCP only, FLV or MPEG-TS.
+  only, TCP only, FLV or MPEG-TS, from a menu next to the Stop button; the
+  stream reconnects the new way at once.
 
 ## Running it
 

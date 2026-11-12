@@ -313,7 +313,7 @@ func (c *Controller) fallBack() {
 	c.transport++
 	c.load()
 	if c.state.Status == Connecting && c.loading {
-		c.state.Message = fmt.Sprintf("No audio over %s, trying %s",
+		c.state.Message = fmt.Sprintf("No response over %s, trying %s",
 			strings.ToUpper(from), strings.ToUpper(c.state.Via))
 	}
 }

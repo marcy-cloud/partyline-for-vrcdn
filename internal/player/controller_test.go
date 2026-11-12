@@ -532,7 +532,7 @@ func TestFallsBackToTCPWhenUDPStaysSilent(t *testing.T) {
 		t.Fatalf("after %d loads the engine is on %q, want tcp on the second", f.loadCount(), f.lastVia())
 	}
 	// Still the same connection attempt as far as the user is concerned.
-	if st := c.State(); st.Status != Connecting || st.Attempt != 0 || st.Message != "No audio over UDP, trying TCP" {
+	if st := c.State(); st.Status != Connecting || st.Attempt != 0 || st.Message != "No response over UDP, trying TCP" {
 		t.Errorf("state during fallback = %+v", st)
 	}
 
