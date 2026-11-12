@@ -119,10 +119,14 @@ func send(enc *coreaudio.Encoder, ingest, keyFile string, seconds float64, bitra
 	scrub := func(err error) error {
 		return fmt.Errorf("%s", strings.ReplaceAll(err.Error(), key, "<key>"))
 	}
-	u, err := url.Parse(strings.TrimRight(ingest, "/") + "/" + key)
+	// The library takes the stream name from the URL's fragment. Written as
+	// a path instead, the key ends up in the app name and the stream is
+	// published with no name, which VRCDN drops after 30 seconds.
+	u, err := url.Parse(strings.TrimRight(ingest, "/"))
 	if err != nil {
 		return scrub(err)
 	}
+	u.Fragment = key
 
 	c := &gortmplib.Client{URL: u, Publish: true}
 	if err := c.Initialize(context.Background()); err != nil {
@@ -131,10 +135,9 @@ func send(enc *coreaudio.Encoder, ingest, keyFile string, seconds float64, bitra
 	defer c.Close()
 
 	// The three kinds of message are written by hand, not through the
-	// library's Writer, so the metadata can be worded the way ffmpeg's FLV
-	// muxer words it for an audio-only stream. (That was one theory for why
-	// VRCDN closes this connection after 30 seconds; it made no difference.
-	// See docs/coreaudio.md.)
+	// library's Writer, so the metadata is worded the way ffmpeg's FLV
+	// muxer words it for an audio-only stream: no video codec announced,
+	// and the real audio data rate.
 	readerErr := make(chan error, 1)
 	go func() {
 		for {
