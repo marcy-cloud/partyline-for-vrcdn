@@ -7,11 +7,15 @@ What to run, in rough order of cost, and which stream to test against.
 - **The VRCDN demo stream, `vrcdn`**, is the default for anything that needs
   a real stream. It is public, always there, and has real audio (peaks around
   -20 dB), so it also exercises the level meter.
-  - It plays over **MPEG-TS and FLV**. Over **RTSP it never answers** (tried
-    2026-11-11, UDP and TCP), so it cannot test the RTSP path.
-- **A DJ's own stream** is needed for RTSP, which is the path that matters
-  most. Ask before using one, play it muted, and check it is live first: an
-  offline stream looks like a hang over RTSP (see below).
+  - It plays over **MPEG-TS, FLV and RTSP**. Its buffer over RTSP runs
+    higher than a DJ's stream (roughly 170–400 ms seen), so it is good for
+    "does it connect" but not for latency numbers.
+  - If RTSP gets no response, suspect the network before the code: on
+    2026-11-11 it failed from coffee-shop Wi-Fi and worked later the same day
+    over RTSP/TCP. Run the MPEG-TS control first.
+- **A DJ's own stream** is the one to measure latency on. Ask before using
+  one, play it muted, and check it is live first: an offline stream looks
+  like a hang over RTSP (see below).
 - **The local test tone** needs no network: the tests in
   `internal/player/mpv_live_test.go` serve an endless -12.2 dB WAV over HTTP
   and play it through the real libmpv to a null output.
@@ -45,8 +49,10 @@ and so on).
    ```
 
    Expect `playing`, a buffer reading that settles under about 100 ms, and a
-   `level` line that is not -100. For RTSP, the same with a live DJ stream
-   and the default transport; expect `via udp` and a buffer of 0–21 ms.
+   `level` line that is not -100. Then RTSP with the default transport:
+   `bin\probe.exe -volume 0 -for 14s vrcdn`. Expect `via udp`, or a fallback
+   to `via tcp` after 4 seconds on a network that drops UDP. On a live DJ
+   stream expect a buffer of 0–21 ms.
 5. **The real window** (Windows):
 
    ```

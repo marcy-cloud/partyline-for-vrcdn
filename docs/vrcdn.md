@@ -153,8 +153,10 @@ On one stream, from one Windows PC, on 2026-11-10 and 2026-11-11:
 - An offline stream answers with a 404 (or 401) on the HTTP outputs. Over
   RTSP it does not answer at all, so the player cannot tell "offline" from
   "RTSP is blocked" by RTSP alone.
-- The `vrcdn` demo stream plays over MPEG-TS and FLV but never answered over
-  RTSP.
+- The `vrcdn` demo stream plays over MPEG-TS, FLV and RTSP.
+- The UDP to TCP fallback has now been seen for real: on a network that let
+  RTSP through over TCP but not UDP, the demo stream started over TCP after
+  the 4-second wait.
 - **RTSP can stop answering while the stream is up.** On 2026-11-11 (around
   16:40 local) a live stream that had played over RTSP hours earlier, with
   the same build, got no answer over RTSP on UDP or TCP, while MPEG-TS and
@@ -177,8 +179,8 @@ On one stream, from one Windows PC, on 2026-11-10 and 2026-11-11:
 - **RTSP on port 554 being blocked is common enough to be in the wiki.** Our
   fallback goes UDP then TCP, both RTSP. A network that blocks RTSP entirely
   needs FLV or MPEG-TS, which the user has to pick by hand today.
-- **The `vrcdn` demo stream** stands in for a live stream in manual tests,
-  over MPEG-TS and FLV only. See [testing.md](testing.md).
+- **The `vrcdn` demo stream** stands in for a live stream in manual tests.
+  See [testing.md](testing.md).
 - **Offline should be detected over HTTP.** Because RTSP stays silent for an
   offline stream, the player currently shows "No response over UDP, trying TCP"
   and then a timeout. Checking the stream's `.live.ts` URL would let it say
