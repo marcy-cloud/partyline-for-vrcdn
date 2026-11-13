@@ -20,6 +20,10 @@ else to install.
 - **Private streams.** Tick "Private stream" when adding one and its key is
   stored encrypted and never shown again: not in the list, not in the
   address under the title, not in the settings file.
+- **Share your list.** Export in the Streams wing saves the saved streams as
+  a small file; Import on someone else's PC adds them to theirs. Streams
+  they already have are left as they are, and private streams are never put
+  in the file.
 - **One-click switching.** Click a stream, or press `1`–`9`, to cut to it.
 - **Send, too.** On Windows a Send tab pushes audio only from an input
   device to VRCDN (AAC, 48 kHz, up to 320 kbps, no video), so a DJ can feed

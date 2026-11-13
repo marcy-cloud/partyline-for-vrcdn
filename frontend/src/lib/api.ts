@@ -147,11 +147,32 @@ export const idleState: PlayerState = {
   via: '',
 }
 
+/** What exporting the stream list wrote; path is '' when cancelled. */
+export interface Exported {
+  path: string
+  count: number
+  /** Private streams, which are never put in a list. */
+  private: number
+}
+
+/** What importing a stream list did. */
+export interface Imported {
+  cancelled: boolean
+  added: number
+  /** Already saved, so left as they were. */
+  known: number
+  invalid: number
+  streams: Stream[]
+}
+
 export interface Api {
   bootstrap(): Promise<Bootstrap>
   saveStream(stream: Stream): Promise<Stream>
   deleteStream(id: string): Promise<Stream[]>
   moveStream(id: string, to: number): Promise<Stream[]>
+  /** Both open a file dialog of the system's. */
+  exportStreams(): Promise<Exported>
+  importStreams(): Promise<Imported>
   play(id: string): Promise<void>
   stop(): Promise<void>
   resync(): Promise<void>
@@ -183,6 +204,11 @@ const wails: Api = {
   saveStream: (s) => Backend.SaveStream(s as never) as unknown as Promise<Stream>,
   deleteStream: async (id) => ((await Backend.DeleteStream(id)) ?? []) as unknown as Stream[],
   moveStream: async (id, to) => ((await Backend.MoveStream(id, to)) ?? []) as unknown as Stream[],
+  exportStreams: () => Backend.ExportStreams() as unknown as Promise<Exported>,
+  importStreams: async () => {
+    const res = (await Backend.ImportStreams()) as unknown as Imported
+    return { ...res, streams: res.streams ?? [] }
+  },
   play: (id) => Backend.Play(id),
   stop: () => Backend.Stop(),
   resync: () => Backend.Resync(),

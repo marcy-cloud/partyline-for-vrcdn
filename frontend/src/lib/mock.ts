@@ -172,6 +172,15 @@ export function createMock(): Api {
       streams = streams.filter((s) => s.id !== id)
       return streams
     },
+    async exportStreams() {
+      const count = streams.filter((s) => !s.private).length
+      return { path: 'C:\\Users\\you\\Desktop\\partyline-streams.json', count, private: streams.length - count }
+    },
+    async importStreams() {
+      const known = streams.length
+      streams = [...streams, { id: crypto.randomUUID(), label: 'Imported DJ', source: 'importeddj', transport: 'rtsp' }]
+      return { cancelled: false, added: 1, known, invalid: 0, streams }
+    },
     async moveStream(id, to) {
       const from = streams.findIndex((s) => s.id === id)
       if (from < 0) return streams

@@ -5,14 +5,16 @@
 // button, looks at the Send tab (and, if PARTYLINE_TEST_KEY holds a stream
 // key, saves a send target, goes live with the test tone and deletes the
 // target again), opens the dialog, folds a wing and switches theme,
-// saving a screenshot at each step.
+// saving a screenshot at each step. With PARTYLINE_TEST_DIALOGS=1 it also
+// exports the stream list and imports it again through the system's file
+// dialogs, by typing into them: leave the keyboard alone while that runs.
 //
 //   go build -tags bundled_libmpv -o bin/dev.exe .
 //   node scripts/ui-smoke.mjs bin\\dev.exe bin
 //
 // Needs Node 22+. Release builds don't open the DevTools port.
-import { spawn } from 'node:child_process'
-import { writeFileSync } from 'node:fs'
+import { spawn, spawnSync } from 'node:child_process'
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 
 if (process.argv.length < 3) {
@@ -203,6 +205,30 @@ try {
     }
     await js(`[...document.querySelectorAll('.tabs .tab')].find((b) => /now-playing/.test(b.innerText)).click()`)
     await sleep(300)
+  }
+
+  // Sharing the stream list. Importing the list just exported adds nothing,
+  // so the saved streams are left as they were.
+  console.log('share buttons:', await js(`[...document.querySelectorAll('.streams .share button')].map((b) => b.innerText.trim() + (b.disabled ? ' (off)' : '')).join(', ')`),
+    '| wing overflow:', await js(`(() => { const w = document.querySelector('.streams'); return w.scrollWidth - w.clientWidth })()`))
+  if (process.env.PARTYLINE_TEST_DIALOGS) {
+    const list = join(out, 'smoke-streams.json')
+    rmSync(list, { force: true })
+    // Types the path into the file dialog once it is in front and settled.
+    const answer = (title) => spawnSync('powershell', ['-NoProfile', '-Command',
+      `$w = New-Object -ComObject WScript.Shell; $ok = $false; for ($i = 0; $i -lt 24 -and -not $ok; $i++) { Start-Sleep -Milliseconds 250; $ok = $w.AppActivate('${title}') }; if (-not $ok) { exit 1 }; Start-Sleep -Milliseconds 2000; if (-not $w.AppActivate('${title}')) { exit 1 }; Start-Sleep -Milliseconds 300; $w.SendKeys('%n'); Start-Sleep -Milliseconds 200; $w.SendKeys('${list}{ENTER}')`]).status === 0
+    const toast = async () => { for (let i = 0; i < 20; i++) { await sleep(300); const t = await js(`document.querySelector('.toast')?.innerText ?? null`); if (t) return t } return null }
+    const press = (name) => js(`[...document.querySelectorAll('.streams .share button')].find((b) => b.innerText.trim() === '${name}').click()`)
+    const before = (await snapshot()).rows.length
+    await press('Export')
+    console.log('export dialog answered:', answer('Save As'), '|', await toast(),
+      '| file:', existsSync(list) ? JSON.parse(readFileSync(list, 'utf8')).streams.length + ' streams' : 'missing')
+    await shot('smoke-export')
+    await js(`document.querySelector('.toast')?.click()`)
+    await press('Import')
+    console.log('import dialog answered:', answer('Import a stream list'), '|', await toast(), '| streams:', before, '->', (await snapshot()).rows.length)
+    rmSync(list, { force: true })
+    await js(`document.querySelector('.toast')?.click()`)
   }
 
   // The dialog and the theme switch.

@@ -304,3 +304,78 @@ func TestPrivateStream(t *testing.T) {
 		t.Errorf("made public: %+v, %v", public, err)
 	}
 }
+
+func TestExportImportStreams(t *testing.T) {
+	from, _ := open(t)
+	for _, st := range []Stream{
+		{Label: "Marcy", Source: "marcymarcy"},
+		{Label: "Demo", Source: "vrcdn", Transport: vrcdn.MPEGTS},
+		{Label: "Secret", Private: true, Key: "protected-key"},
+	} {
+		if _, err := from.SaveStream(st); err != nil {
+			t.Fatal(err)
+		}
+	}
+	data, count, private, err := from.ExportStreams()
+	if err != nil || count != 2 || private != 1 {
+		t.Fatalf("export: count %d, private %d, err %v", count, private, err)
+	}
+	if strings.Contains(string(data), "protected-key") || strings.Contains(string(data), "Secret") {
+		t.Fatalf("private stream leaked into the list:\n%s", data)
+	}
+
+	to, path := open(t)
+	if _, err := to.SaveStream(Stream{Label: "My name for her", Source: "MarcyMarcy", Transport: vrcdn.RTSPTCP}); err != nil {
+		t.Fatal(err)
+	}
+	res, err := to.ImportStreams(data)
+	if err != nil || res != (Imported{Added: 1, Known: 1}) {
+		t.Fatalf("import: %+v, %v", res, err)
+	}
+	// Importing again changes nothing.
+	if res, err = to.ImportStreams(data); err != nil || res != (Imported{Known: 2}) {
+		t.Fatalf("second import: %+v, %v", res, err)
+	}
+
+	reopened, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := reopened.Streams()
+	if len(got) != 2 {
+		t.Fatalf("streams after import: %v", ids(got))
+	}
+	// The stream already saved keeps the listener's own label and connection.
+	if got[0].Label != "My name for her" || got[0].Transport != vrcdn.RTSPTCP {
+		t.Errorf("existing stream was changed: %+v", got[0])
+	}
+	if got[1].Label != "Demo" || got[1].Source != "vrcdn" || got[1].Transport != vrcdn.MPEGTS || got[1].ID == "" {
+		t.Errorf("imported stream: %+v", got[1])
+	}
+}
+
+func TestImportStreamsRejectsOtherFiles(t *testing.T) {
+	s, _ := open(t)
+	for name, data := range map[string]string{
+		"not json":      "hello",
+		"other json":    `{"streams":[{"label":"x","source":"x"}]}`,
+		"the config":    `{"version":2,"streams":[],"settings":{}}`,
+		"newer version": `{"app":"partyline","version":99,"streams":[]}`,
+	} {
+		if _, err := s.ImportStreams([]byte(data)); err == nil {
+			t.Errorf("%s: imported without an error", name)
+		}
+	}
+	// Bad entries are counted and skipped; good ones still load, with defaults.
+	res, err := s.ImportStreams([]byte(`{"app":"partyline","version":1,"streams":[
+		{"label":"","source":""},
+		{"label":"  ","source":"somedj","transport":"nonsense"},
+		{"label":"Twice","source":"SomeDJ"}]}`))
+	if err != nil || res != (Imported{Added: 1, Known: 1, Invalid: 1}) {
+		t.Fatalf("import: %+v, %v", res, err)
+	}
+	got := s.Streams()
+	if len(got) != 1 || got[0].Label != "somedj" || got[0].Transport != vrcdn.RTSP {
+		t.Errorf("imported: %+v", got)
+	}
+}

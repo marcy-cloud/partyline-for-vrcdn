@@ -248,6 +248,26 @@
     editing = null
   }
 
+  const count = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`
+
+  async function exportStreams() {
+    const res = await call((a) => a.exportStreams())
+    if (!res?.path) return
+    const left = res.private ? ` ${count(res.private, 'private stream')} left out.` : ''
+    const file = res.path.split(/[\\/]/).pop()
+    notify(`Saved ${count(res.count, 'stream')} to ${file}.${left}`)
+  }
+
+  async function importStreams() {
+    const res = await call((a) => a.importStreams())
+    if (!res || res.cancelled) return
+    streams = res.streams
+    const parts = [`Added ${count(res.added, 'stream')}`]
+    if (res.known) parts.push(`${res.known} already here`)
+    if (res.invalid) parts.push(`${res.invalid} couldn't be read`)
+    notify(parts.join(' · '))
+  }
+
   async function moveStream(id: string, to: number) {
     if (!api) return
     streams = await api.moveStream(id, to)
@@ -318,6 +338,8 @@
       onplay={play}
       onedit={(s) => (editing = s)}
       onadd={() => (editing = { ...blank })}
+      onexport={exportStreams}
+      onimport={importStreams}
     />
     {/if}
     <NowPlaying
@@ -420,5 +442,8 @@
     color: var(--gt-text);
     font-weight: 600;
     text-align: left;
+    overflow-wrap: anywhere;
+    /* Above the middle window, which is raised over the wings. */
+    z-index: 20;
   }
 </style>

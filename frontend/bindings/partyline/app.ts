@@ -42,6 +42,21 @@ export function DeleteStream(id: string): $CancellablePromise<store$0.Stream[] |
 }
 
 /**
+ * ExportStreams asks where to save the stream list and writes it there.
+ */
+export function ExportStreams(): $CancellablePromise<$models.Exported> {
+    return $Call.ByID(1269233600);
+}
+
+/**
+ * ImportStreams asks for a stream list file and adds its streams to the
+ * saved ones.
+ */
+export function ImportStreams(): $CancellablePromise<$models.Imported> {
+    return $Call.ByID(1261807461);
+}
+
+/**
  * MoveStream repositions a saved stream and returns the reordered list.
  */
 export function MoveStream(id: string, to: number): $CancellablePromise<store$0.Stream[] | null> {

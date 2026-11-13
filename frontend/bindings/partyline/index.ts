@@ -8,6 +8,8 @@ export {
 
 export type {
     Bootstrap,
+    Exported,
+    Imported,
     SendInfo,
     SendSettings,
     SendTarget

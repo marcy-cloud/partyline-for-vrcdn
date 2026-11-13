@@ -77,6 +77,10 @@ See [sender.md](sender.md) for what was tested and the commands.
 - `cmd/sendprobe` sends from a console. Its default input is the -12 dB test
   tone, so nothing from the PC goes out by accident. The stream key is read
   from a file, never passed on the command line.
+- With `PARTYLINE_TEST_DIALOGS=1` the real-window smoke test also exports the
+  stream list and imports it again through the system's file dialogs. It
+  types into them, so leave the keyboard alone while it runs. Importing the
+  list just exported adds nothing, so the saved streams are not changed.
 - The real-window smoke test always opens the Send tab. With the environment
   variable `PARTYLINE_TEST_KEY` set to a stream key it also saves the key,
   goes on air with the test tone, checks the level, stops, and forgets the

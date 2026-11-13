@@ -10,8 +10,10 @@
     onedit: (stream: Stream) => void
     onadd: () => void
     onfold: () => void
+    onexport: () => void
+    onimport: () => void
   }
-  let { streams, player, disabled, onplay, onedit, onadd, onfold }: Props = $props()
+  let { streams, player, disabled, onplay, onedit, onadd, onfold, onexport, onimport }: Props = $props()
 
   // The maintainer's own stream wears a little hearts flair in the list.
   const flaired = new Set(['marcymarcy'])
@@ -41,6 +43,7 @@
       <p>No saved streams yet.</p>
       <p class="hint">Add a performer's VRCDN stream name, or paste any of the URLs from their VRCDN page.</p>
       <button class="btn primary" onclick={onadd}><Icon name="plus" />Add stream</button>
+      <p class="hint">Got a list from a friend? Load it with Import below.</p>
     </div>
   {:else}
     <ul>
@@ -70,10 +73,35 @@
 
   <footer>
     <button class="icon-btn fold" onclick={onfold} aria-label="Hide streams" title="Hide">‹</button>
+    <span class="share">
+      <button class="btn ghost" onclick={onimport} title="Add the streams from a list someone gave you">Import</button>
+      <button
+        class="btn ghost"
+        onclick={onexport}
+        disabled={streams.length === 0}
+        title="Save these streams as a file to give to someone"
+      >Export</button>
+    </span>
   </footer>
 </aside>
 
 <style>
+  footer {
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .share {
+    display: flex;
+    gap: var(--gt-space-1);
+  }
+
+  .share .btn {
+    min-height: 28px;
+    padding: 0 var(--gt-space-2);
+    font-size: var(--gt-text-small);
+  }
+
   .key {
     flex: none;
     display: grid;

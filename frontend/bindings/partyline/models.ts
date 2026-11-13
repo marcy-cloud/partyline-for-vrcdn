@@ -35,6 +35,56 @@ export interface Bootstrap {
 }
 
 /**
+ * Exported says what ExportStreams wrote.
+ */
+export interface Exported {
+    /**
+     * Path is the file written; "" when the dialog was cancelled.
+     */
+    "path": string;
+
+    /**
+     * Count is how many streams are in the file.
+     */
+    "count": number;
+
+    /**
+     * Private is how many private streams were left out.
+     */
+    "private": number;
+}
+
+/**
+ * Imported says what ImportStreams loaded.
+ */
+export interface Imported {
+    /**
+     * Added is how many streams were new and are now saved.
+     */
+    "added": number;
+
+    /**
+     * Known is how many were already in the list and left as they were.
+     */
+    "known": number;
+
+    /**
+     * Invalid is how many entries couldn't be read as a stream.
+     */
+    "invalid": number;
+
+    /**
+     * Cancelled is set when no file was chosen.
+     */
+    "cancelled": boolean;
+
+    /**
+     * Streams is the saved list afterwards.
+     */
+    "streams": store$0.Stream[] | null;
+}
+
+/**
  * SendInfo is everything the Send side needs to draw itself.
  */
 export interface SendInfo {
