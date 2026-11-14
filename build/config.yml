@@ -8,6 +8,8 @@ info:
   companyName: "Marcy.cloud" # The name of the company
   productName: "PartyLine for VRCDN" # The name of the application
   productIdentifier: "app.partyline" # The unique product identifier
+  # Windows shows the exe's FileDescription as the app's name in Task Manager, so
+  # build/windows/info.json carries the product name there instead of this.
   description: "Low-latency audio player for VRCDN streams" # The application description
   copyright: "GPL-3.0-or-later" # Copyright text
   comments: "Low-latency audio player for VRCDN streams" # Comments
