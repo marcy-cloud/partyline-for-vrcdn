@@ -86,6 +86,15 @@ type Tuning struct {
 	// RelearnAfter is how long a learned fallback is trusted before the
 	// first choice is tried again. Zero means until the app restarts.
 	RelearnAfter time.Duration
+	// UDPTries is how many times in a row UDP may get no audio within
+	// FallbackAfter before TCP is used instead. A start over UDP normally
+	// takes about 2.5 s and now and then well over 3, so one miss says
+	// little, and being wrong costs RelearnAfter on TCP. Less than 1 means 1.
+	//
+	// The extra tries are only for a network not yet known to drop UDP.
+	// Where it has been found to, a later look to see whether that has
+	// changed is a single try: there is no point making that listener wait.
+	UDPTries int
 	// Offline reports whether the stream behind a LiveCheckURL is offline.
 	// It runs off the controller goroutine and may block. Nil disables the
 	// check.
@@ -120,6 +129,7 @@ func DefaultTuning() Tuning {
 		ConnectTimeout: 12 * time.Second,
 		FallbackAfter:  4 * time.Second,
 		RelearnAfter:   10 * time.Minute,
+		UDPTries:       2,
 		Offline:        HTTPOffline,
 		StallTimeout:   4 * time.Second,
 		CatchUpSustain: time.Second,
@@ -163,6 +173,11 @@ type Controller struct {
 	// streams start there instead of waiting out the same failure.
 	learned   int
 	learnedAt time.Time
+	// udpDropped is whether UDP has been found not to get through on this
+	// network, and not since been seen to.
+	udpDropped bool
+	// udpTries counts loads over UDP in this connection cycle.
+	udpTries int
 	// gen counts connection cycles, so a live check that comes back after
 	// the stream was switched or stopped is ignored.
 	gen     int
@@ -303,6 +318,7 @@ func (c *Controller) loop() {
 				// for audio. Hold on for the answer, so an offline stream
 				// isn't first reported as a blocked connection.
 				c.fallback = time.After(c.tuning.FallbackAfter / 8)
+			case c.tryUDPAgain():
 			default:
 				c.fallBack()
 			}
@@ -371,6 +387,7 @@ func (c *Controller) connect() {
 	}
 	c.gen++
 	c.checking = false
+	c.udpTries = 0
 	if url, offline := c.target.LiveCheckURL, c.tuning.Offline; url != "" && offline != nil {
 		c.checking = true
 		gen := c.gen
@@ -397,6 +414,9 @@ func (c *Controller) load() {
 	url, rtspTransport, via := c.route(c.transport)
 	c.state.URL = url
 	c.state.Via = via
+	if via == viaUDP {
+		c.udpTries++
+	}
 
 	entry, err := c.engine.Load(url, rtspTransport)
 	if err != nil {
@@ -415,6 +435,22 @@ func (c *Controller) load() {
 
 func (c *Controller) canFallBack() bool {
 	return c.target != nil && c.transport < c.routes()-1
+}
+
+// viaUDP is what RTSP over UDP is called in Target.RTSPTransports.
+const viaUDP = "udp"
+
+// tryUDPAgain gives UDP another go when it has produced no audio in time
+// (see Tuning.UDPTries), and reports whether it did.
+func (c *Controller) tryUDPAgain() bool {
+	if c.state.Via != viaUDP || c.udpDropped || c.udpTries >= c.tuning.UDPTries {
+		return false
+	}
+	c.load()
+	if c.state.Status == Connecting && c.loading {
+		c.state.Message = "No response over UDP, trying again"
+	}
+	return true
 }
 
 // fallBack restarts the current attempt on the next way in. It is not a
@@ -490,6 +526,13 @@ func (c *Controller) handle(ev Event) {
 		c.fallback = nil
 		if c.transport > c.learned {
 			c.learned, c.learnedAt = c.transport, time.Now()
+		}
+		// UDP getting through settles it; so does having to leave it.
+		switch {
+		case c.state.Via == viaUDP:
+			c.udpDropped = false
+		case c.udpTries > 0:
+			c.udpDropped = true
 		}
 		if c.state.Status != Playing {
 			c.state.SinceMs = time.Now().UnixMilli()

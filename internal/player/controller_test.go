@@ -780,6 +780,88 @@ func TestFallsBackToMPEGTSWhenRTSPGetsNoResponse(t *testing.T) {
 	}
 }
 
+// One miss over UDP says little: a start is sometimes just slow. It gets
+// another go before TCP is used, and if that works nothing is held against
+// UDP afterwards.
+func TestUDPGetsASecondTry(t *testing.T) {
+	tuning := testTuning()
+	tuning.FallbackAfter = 40 * time.Millisecond
+	tuning.UDPTries = 2
+	c, f := start(t, defaultOpts, tuning)
+	c.Play(udpFirstA)
+
+	waitFor(t, "second UDP attempt", func() bool { return f.loadCount() == 2 })
+	if f.lastVia() != "udp" {
+		t.Fatalf("second attempt went over %q, want udp again", f.lastVia())
+	}
+	if st := c.State(); st.Status != Connecting || st.Attempt != 0 || st.Message != "No response over UDP, trying again" {
+		t.Errorf("state during the second try = %+v", st)
+	}
+	f.started()
+	if st := waitStatus(t, c, Playing); st.Via != "udp" || st.Message != "" {
+		t.Errorf("state once playing = %+v", st)
+	}
+
+	c.Play(udpFirstB)
+	if f.lastVia() != "udp" || f.loadCount() != 3 {
+		t.Errorf("next stream: via %q after %d loads, want udp", f.lastVia(), f.loadCount())
+	}
+}
+
+// Two misses in a row and TCP it is, remembered as before. When that
+// memory runs out, UDP gets one look, not two: this network has form.
+func TestUDPMissingTwiceFallsBackAndIsRemembered(t *testing.T) {
+	tuning := testTuning()
+	tuning.FallbackAfter = 30 * time.Millisecond
+	tuning.RelearnAfter = 250 * time.Millisecond
+	tuning.UDPTries = 2
+	c, f := start(t, defaultOpts, tuning)
+	c.Play(udpFirstA)
+
+	waitFor(t, "TCP attempt", func() bool { return c.State().Via == "tcp" })
+	if f.loadCount() != 3 {
+		t.Fatalf("reached TCP after %d loads, want 3 (UDP, UDP, TCP)", f.loadCount())
+	}
+	if msg := c.State().Message; msg != "No response over UDP, trying TCP" {
+		t.Errorf("message = %q", msg)
+	}
+	f.started()
+	waitStatus(t, c, Playing)
+
+	c.Play(udpFirstB)
+	if f.lastVia() != "tcp" || f.loadCount() != 4 {
+		t.Fatalf("next stream: via %q after %d loads, want tcp straight away", f.lastVia(), f.loadCount())
+	}
+	f.started()
+	waitStatus(t, c, Playing)
+
+	time.Sleep(2 * tuning.RelearnAfter)
+	c.Play(udpFirstA)
+	if f.lastVia() != "udp" || f.loadCount() != 5 {
+		t.Fatalf("after the memory ran out: via %q after %d loads, want udp", f.lastVia(), f.loadCount())
+	}
+	waitFor(t, "TCP attempt", func() bool { return c.State().Via == "tcp" })
+	if f.loadCount() != 6 {
+		t.Errorf("reached TCP after %d loads, want 6: one look at UDP, not two", f.loadCount())
+	}
+
+	// And once UDP is seen to work, it has a clean slate again.
+	f.started()
+	waitStatus(t, c, Playing)
+	time.Sleep(2 * tuning.RelearnAfter)
+	c.Play(udpFirstB)
+	f.started()
+	if st := waitStatus(t, c, Playing); st.Via != "udp" {
+		t.Fatalf("playing via %q, want udp", st.Via)
+	}
+	loads := f.loadCount()
+	c.Play(udpFirstA)
+	waitFor(t, "second UDP attempt", func() bool { return f.loadCount() == loads+2 })
+	if f.lastVia() != "udp" {
+		t.Errorf("after UDP worked, a miss went to %q, want another UDP try", f.lastVia())
+	}
+}
+
 func TestLearnedFallbackExpires(t *testing.T) {
 	tuning := testTuning()
 	tuning.FallbackAfter = 20 * time.Millisecond

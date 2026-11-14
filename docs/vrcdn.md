@@ -205,5 +205,13 @@ On one stream, from one Windows PC, on 2026-11-10 and 2026-11-11:
   connection attempt the player requests the stream's `.live.ts` URL. A 401
   or 404 means offline. VRCDN takes about 4 seconds to give that answer and
   about 1 second to start a live stream, so the first fallback waits for it.
+- **UDP gets two tries before TCP** (2026-11-14). On a network where UDP
+  works, a start over it now and then produced no audio within the
+  4 seconds allowed, and the player then used TCP for 10 minutes. Timed on
+  the demo stream: 30 UDP starts took 2.4 to 3.1 seconds (TCP the same), so
+  the margin is thin, and one start in about 45 that day got nothing in
+  4 seconds. Why that one was slow is not known; two brand-new copies of
+  the exe did not reproduce it. A network already found to drop UDP gets
+  one try when its 10 minutes are up, not two.
 - **The default setting falls back to MPEG-TS** when RTSP gets no response
   on UDP or TCP. This is run-time only; the saved connection is not changed.
