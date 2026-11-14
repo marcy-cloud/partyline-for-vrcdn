@@ -92,6 +92,11 @@ with a wrong or empty stream name straight away.
 
 ## Not done
 
+- **It sends in lumps of a third of a second**, which puts a listener up to
+  a third of a second behind or gives them gaps. Found on 2026-11-13 while
+  measuring delay; cause and the likely fix are in
+  [latency.md](latency.md).
+
 - Not tried on air for long, or with a hardware mixer as the input.
 - Only 16-bit stereo at 48 kHz goes to the encoder, which is what the rest
   of the sender uses.

@@ -132,7 +132,8 @@ Page: <https://wiki.vrcdn.live/en/stream/NetworkRules>
   our own testing".
 - **Audio codecs.** AAC is implied by the OBS settings; nothing is said about
   Opus or MP3.
-- **Stated latency figures** for any output.
+- **Stated latency figures** for any output. We measured our own: see
+  [latency.md](latency.md).
 - **An HTTP API.** The rules mention one, but no endpoints are documented.
   (The original Electron player polled a viewer-count API.)
 - **Viewer numbers per tier**, and any stream duration limit.
@@ -149,6 +150,9 @@ On one stream, from one Windows PC, on 2026-11-10 and 2026-11-11:
 - Queued audio in the player while playing: 0–21 ms over RTSP, 20–40 ms over
   MPEG-TS, and about 800 ms at start over FLV until dropped. This is the
   player's own queue, not the delay from the DJ.
+- The delay from the DJ, measured on 2026-11-13: about 80-105 ms from
+  PartyLine's sender to the listener's decoder, of which VRCDN and the
+  network are 36-57 ms. Details and caveats in [latency.md](latency.md).
 - An offline or nonexistent stream answers 401 on the HTTP outputs, after
   about 4 seconds (404 has also been seen). Over
   RTSP it does not answer at all, so the player cannot tell "offline" from

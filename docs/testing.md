@@ -70,6 +70,12 @@ and so on).
 7. **Before a release**: `scripts\package.ps1`, then start the exe from the
    zip once.
 
+## Measuring delay
+
+`cmd/latencyprobe` times audio from the sender's input to the listener's
+decoder, through VRCDN or with no network. How it works, what it leaves
+out and the figures so far are in [latency.md](latency.md).
+
 ## Sending
 
 See [sender.md](sender.md) for what was tested and the commands.

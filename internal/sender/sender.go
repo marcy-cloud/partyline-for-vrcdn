@@ -173,9 +173,15 @@ func (s *Sender) Stop() {
 	s.set(State{Status: Off})
 }
 
+// LocalIngest is the start of an address that isn't an RTMP server: a TCP
+// listener on this PC, which is sent the same AAC in FLV without RTMP around
+// it. Measurement tools use it to time the sender with no network involved.
+// Only the FFmpeg encoder can send to it.
+const LocalIngest = "tcp://127.0.0.1:"
+
 func (cfg Config) validate() error {
 	switch {
-	case !strings.HasPrefix(cfg.Ingest, "rtmp://") && !strings.HasPrefix(cfg.Ingest, "rtmps://"):
+	case !strings.HasPrefix(cfg.Ingest, "rtmp://") && !strings.HasPrefix(cfg.Ingest, "rtmps://") && !strings.HasPrefix(cfg.Ingest, LocalIngest):
 		return errors.New("choose a server to send to")
 	case cfg.Key == "":
 		return errors.New("enter your stream key first")
@@ -371,7 +377,6 @@ func openMPV(cfg Config) (session, error) {
 		{"vid", "no"}, {"sid", "no"}, {"audio-display", "no"},
 		// Nothing may sit between the input and the encoder.
 		{"cache", "no"},
-		{"demuxer-lavf-o", inputOptions},
 		{"network-timeout", "10"},
 		// Encode instead of play: AAC in FLV, the form RTMP carries.
 		{"o", cfg.target()},
@@ -383,7 +388,7 @@ func openMPV(cfg Config) (session, error) {
 		{"audio-channels", "stereo"},
 		{"af", meter.Filter},
 	}
-	for _, kv := range options {
+	for _, kv := range append(options, inputOptions...) {
 		if err := m.SetOption(kv[0], kv[1]); err != nil {
 			m.Destroy()
 			return nil, fmt.Errorf("option %s: %w", kv[0], err)

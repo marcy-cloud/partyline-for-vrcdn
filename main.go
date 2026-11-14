@@ -90,7 +90,7 @@ func main() {
 			// act as touch never produce the mouse moves Wails listens for.
 			NonClientRegionSupport: true,
 		},
-		URL:              "/",
+		URL: "/",
 	})
 
 	if err := app.Run(); err != nil {

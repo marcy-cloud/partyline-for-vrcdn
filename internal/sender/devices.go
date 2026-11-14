@@ -21,6 +21,13 @@ type Device struct {
 // checking the link without any gear connected.
 var TestTone = Device{ID: "test-tone", Name: "Test tone (440 Hz)"}
 
+// PCMInput is the prefix of a device ID that isn't a device: "pcm:" followed
+// by host:port reads raw 48 kHz stereo 16-bit PCM from a TCP server there.
+// Measurement tools use it to feed the sender audio whose timing they know;
+// it is never listed. The engine reads raw PCM 4096 frames (85 ms) at a time,
+// where a capture device delivers about 20 ms; nothing here can change that.
+const PCMInput = "pcm:"
+
 // Supported reports whether this build can capture audio to send. Capture
 // uses DirectShow, so for now that means Windows.
 func Supported() bool { return runtime.GOOS == "windows" }
@@ -29,17 +36,23 @@ func Supported() bool { return runtime.GOOS == "windows" }
 // paces it, as lavfi would otherwise run as fast as the encoder allows.
 const testToneURL = "av://lavfi:sine=frequency=440:sample_rate=48000,volume=9dB,aformat=channel_layouts=stereo,arealtime"
 
-// inputURL returns what to hand libmpv for a device, and the libavformat
+// inputURL returns what to hand libmpv for a device, and the mpv
 // options that go with it.
-func inputURL(id string) (url, options string, err error) {
+func inputURL(id string) (url string, options [][2]string, err error) {
 	if id == TestTone.ID {
-		return testToneURL, "", nil
+		return testToneURL, nil, nil
+	}
+	if addr, ok := strings.CutPrefix(id, PCMInput); ok {
+		return "tcp://" + addr, [][2]string{
+			{"demuxer-lavf-format", "s16le"},
+			{"demuxer-lavf-o", "sample_rate=48000,ch_layout=stereo,fflags=+nobuffer"},
+		}, nil
 	}
 	if !Supported() {
-		return "", "", errors.New("sending from an input device is only available on Windows for now")
+		return "", nil, errors.New("sending from an input device is only available on Windows for now")
 	}
 	// DirectShow buffers half a second of audio unless told otherwise.
-	return "av://dshow:audio=" + id, "audio_buffer_size=20,fflags=+nobuffer", nil
+	return "av://dshow:audio=" + id, [][2]string{{"demuxer-lavf-o", "audio_buffer_size=20,fflags=+nobuffer"}}, nil
 }
 
 var (

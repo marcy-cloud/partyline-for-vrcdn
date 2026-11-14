@@ -93,7 +93,6 @@ func openCoreAudio(cfg Config) (session, error) {
 		{"config", "no"}, {"terminal", "no"}, {"ytdl", "no"}, {"load-scripts", "no"},
 		{"vid", "no"}, {"sid", "no"}, {"audio-display", "no"},
 		{"cache", "no"},
-		{"demuxer-lavf-o", inputOptions},
 		// "Encode" to raw PCM, into our socket.
 		{"o", "tcp://" + s.listener.Addr().String()},
 		{"of", "s16le"},
@@ -101,7 +100,7 @@ func openCoreAudio(cfg Config) (session, error) {
 		{"audio-samplerate", "48000"},
 		{"audio-channels", "stereo"},
 	}
-	for _, kv := range options {
+	for _, kv := range append(options, inputOptions...) {
 		if err := s.mpv.SetOption(kv[0], kv[1]); err != nil {
 			return fail(fmt.Errorf("option %s: %w", kv[0], err))
 		}
