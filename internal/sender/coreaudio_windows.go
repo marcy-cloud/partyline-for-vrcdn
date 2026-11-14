@@ -6,10 +6,8 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"io"
 	"math"
-	"net"
 	"net/url"
 	"strings"
 	"sync"
@@ -21,7 +19,6 @@ import (
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
 
 	"partyline/internal/coreaudio"
-	"partyline/internal/libmpv"
 	"partyline/internal/meter"
 )
 
@@ -38,35 +35,28 @@ const (
 )
 
 // coreAudioSession sends with Apple's encoder. libmpv cannot send audio it
-// did not encode, so here it only captures: it writes raw PCM to a local
-// socket, and from there this code encodes each frame with Apple's encoder
-// and publishes it over RTMP itself.
+// did not encode, so here it only captures (see capture), and this code
+// encodes each frame with Apple's encoder and publishes it over RTMP
+// itself.
 type coreAudioSession struct {
 	events chan sessionEvent
 	quit   chan struct{}
 	wg     sync.WaitGroup
 	pumped chan struct{} // closed when pump has finished
 
-	mpv      *libmpv.Client
-	listener net.Listener
-	rtmp     *gortmplib.Client
-	enc      *coreaudio.Encoder
-	key      string
+	cap  *capture
+	rtmp *gortmplib.Client
+	enc  *coreaudio.Encoder
+	key  string
 
 	mu      sync.Mutex
-	pcm     net.Conn
 	started bool // the goroutines are running
 	sent    int
 	peak    meter.Levels
 	fresh   bool // a peak has been measured since levels was last read
-	mpvErr  []string
 }
 
 func openCoreAudio(cfg Config) (session, error) {
-	input, inputOptions, err := inputURL(cfg.Device)
-	if err != nil {
-		return nil, err
-	}
 	enc, err := coreaudio.NewEncoder(caRate, caChannels, cfg.BitrateKbps)
 	if err != nil {
 		return nil, err
@@ -82,34 +72,7 @@ func openCoreAudio(cfg Config) (session, error) {
 	if s.rtmp, err = publish(cfg); err != nil {
 		return fail(err)
 	}
-
-	if s.listener, err = net.Listen("tcp", "127.0.0.1:0"); err != nil {
-		return fail(err)
-	}
-	if s.mpv, err = libmpv.New(); err != nil {
-		return fail(err)
-	}
-	options := [][2]string{
-		{"config", "no"}, {"terminal", "no"}, {"ytdl", "no"}, {"load-scripts", "no"},
-		{"vid", "no"}, {"sid", "no"}, {"audio-display", "no"},
-		{"cache", "no"},
-		// "Encode" to raw PCM, into our socket.
-		{"o", "tcp://" + s.listener.Addr().String()},
-		{"of", "s16le"},
-		{"oac", "pcm_s16le"},
-		{"audio-samplerate", "48000"},
-		{"audio-channels", "stereo"},
-	}
-	for _, kv := range append(options, inputOptions...) {
-		if err := s.mpv.SetOption(kv[0], kv[1]); err != nil {
-			return fail(fmt.Errorf("option %s: %w", kv[0], err))
-		}
-	}
-	if err := s.mpv.Initialize(); err != nil {
-		return fail(err)
-	}
-	_ = s.mpv.RequestLogMessages("error")
-	if err := s.mpv.Command("loadfile", input); err != nil {
+	if s.cap, err = openCapture(cfg.Device); err != nil {
 		return fail(err)
 	}
 
@@ -204,23 +167,10 @@ func (s *coreAudioSession) stopping() bool {
 // watchCapture reports libmpv giving up on the input.
 func (s *coreAudioSession) watchCapture() {
 	defer s.wg.Done()
-	for !s.stopping() {
-		ev := s.mpv.WaitEvent(0.2)
-		switch ev.ID {
-		case libmpv.EventLogMessage:
-			s.mu.Lock()
-			s.mpvErr = append(s.mpvErr, ev.LogText)
-			s.mu.Unlock()
-		case libmpv.EventEndFile, libmpv.EventShutdown:
-			s.mu.Lock()
-			detail := strings.Join(s.mpvErr, " · ")
-			s.mu.Unlock()
-			if detail == "" {
-				detail = "the input stopped delivering audio"
-			}
-			s.end(detail)
-			return
-		}
+	select {
+	case detail := <-s.cap.ended:
+		s.end(detail)
+	case <-s.quit:
 	}
 }
 
@@ -241,17 +191,13 @@ func (s *coreAudioSession) watchServer() {
 // pump moves audio from libmpv's PCM to the server, a frame at a time.
 func (s *coreAudioSession) pump() {
 	defer close(s.pumped)
-	conn, err := s.listener.Accept()
+	conn, err := s.cap.audio()
 	if err != nil {
 		if !s.stopping() {
 			s.end("the audio capture did not start")
 		}
 		return
 	}
-	s.mu.Lock()
-	s.pcm = conn
-	s.mu.Unlock()
-	defer conn.Close()
 
 	frame := make([]byte, caFrameBytes)
 	for {
@@ -347,21 +293,15 @@ func (s *coreAudioSession) levels() (meter.Levels, bool) {
 
 func (s *coreAudioSession) close() {
 	close(s.quit)
-	// The audio first: closing its socket and the listener stops the pump,
-	// which must be out of the way before anything else is written to the
-	// server on the same connection.
-	if s.listener != nil {
-		s.listener.Close()
-	}
-	s.mu.Lock()
-	pcm := s.pcm
-	s.mu.Unlock()
-	if pcm != nil {
-		pcm.Close()
-	}
+	// The audio first: ending the capture stops the pump, which must be out
+	// of the way before anything else is written to the server on the same
+	// connection.
 	if s.rtmp != nil {
 		// Unblocks a pump that is in the middle of a write to a dead server.
 		_ = s.rtmp.NetConn().SetWriteDeadline(time.Now())
+	}
+	if s.cap != nil {
+		s.cap.close()
 	}
 	if s.started {
 		<-s.pumped
@@ -370,12 +310,6 @@ func (s *coreAudioSession) close() {
 		unpublish(s.rtmp, s.key)
 		s.rtmp.Close()
 	}
-	if s.mpv != nil {
-		s.mpv.Wakeup()
-	}
 	s.wg.Wait()
-	if s.mpv != nil {
-		s.mpv.Destroy()
-	}
 	s.enc.Close()
 }

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"partyline/internal/libmpv"
+	"partyline/internal/pcmpipe"
 )
 
 // Tap opens a stream the way the player does but, instead of sending it to
@@ -17,7 +18,7 @@ import (
 // settings as playback, and nothing after them (no queue, no audio device).
 type Tap struct {
 	m    *libmpv.Client
-	pipe *pipe
+	pipe *pcmpipe.Pipe
 	quit chan struct{}
 	done chan struct{}
 	once sync.Once
@@ -34,7 +35,7 @@ type Tap struct {
 // OpenTap starts reading url. rtspTransport is "udp", "tcp" or "" as for
 // Engine.Load. extra mpv options are applied last.
 func OpenTap(url, rtspTransport string, extra ...[2]string) (*Tap, error) {
-	p, err := listenPipe()
+	p, err := pcmpipe.Listen()
 	if err != nil {
 		return nil, err
 	}

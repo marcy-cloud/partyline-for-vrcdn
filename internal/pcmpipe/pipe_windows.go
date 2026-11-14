@@ -1,4 +1,4 @@
-package player
+package pcmpipe
 
 import (
 	"fmt"
@@ -10,9 +10,8 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-// pipe is a named pipe that mpv writes decoded audio into as if it were a
-// file.
-type pipe struct {
+// Pipe is a named pipe that libmpv writes audio into as if it were a file.
+type Pipe struct {
 	name string
 	h    windows.Handle
 	mu   sync.Mutex
@@ -22,8 +21,9 @@ type pipe struct {
 
 var pipeSeq atomic.Int64
 
-func listenPipe() (*pipe, error) {
-	name := fmt.Sprintf(`\\.\pipe\partyline-tap-%d-%d`, os.Getpid(), pipeSeq.Add(1))
+// Listen creates the pipe. Nothing is read until Accept.
+func Listen() (*Pipe, error) {
+	name := fmt.Sprintf(`\\.\pipe\partyline-pcm-%d-%d`, os.Getpid(), pipeSeq.Add(1))
 	ptr, err := windows.UTF16PtrFromString(name)
 	if err != nil {
 		return nil, err
@@ -32,13 +32,14 @@ func listenPipe() (*pipe, error) {
 	if err != nil {
 		return nil, fmt.Errorf("creating a pipe for the audio: %w", err)
 	}
-	return &pipe{name: name, h: h}, nil
+	return &Pipe{name: name, h: h}, nil
 }
 
-func (p *pipe) Path() string { return p.name }
+// Path is what to give libmpv as the file to write.
+func (p *Pipe) Path() string { return p.name }
 
 // Accept waits for the writer to open the pipe.
-func (p *pipe) Accept() (io.ReadCloser, error) {
+func (p *Pipe) Accept() (io.ReadCloser, error) {
 	if err := windows.ConnectNamedPipe(p.h, nil); err != nil && err != windows.ERROR_PIPE_CONNECTED {
 		return nil, err
 	}
@@ -52,7 +53,7 @@ func (p *pipe) Accept() (io.ReadCloser, error) {
 }
 
 // Close ends the pipe, whether or not anyone has opened it.
-func (p *pipe) Close() {
+func (p *Pipe) Close() {
 	p.mu.Lock()
 	p.shut = true
 	file := p.file

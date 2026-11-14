@@ -9,8 +9,8 @@ learned getting there.
 - The Send tab shows an **Encoder** choice only on PCs where Apple's
   encoder is installed (it comes with iTunes). FFmpeg AAC stays the default.
 - With CoreAudio chosen, `internal/sender` uses a second kind of session
-  (`coreaudio_windows.go`): libmpv captures the input and writes raw PCM to
-  a local socket; our code reads it a frame at a time, measures the level,
+  (`coreaudio_windows.go`): libmpv captures the input and writes raw PCM
+  into a pipe (`capture.go`); our code reads it a frame at a time, measures the level,
   encodes with `internal/coreaudio`, and publishes over RTMP with
   `gortmplib`. It sits behind the same `session` interface as the libmpv
   path, so reconnecting, giving up after repeated refusals, stall detection
@@ -41,11 +41,16 @@ give a clear message and stop.
   (`github.com/bluenviron/gortmplib`, MIT), the stream stayed on air for two
   minutes and played on MPEG-TS, FLV, and RTSP over TCP and UDP, at
   -12.0 dB.
-- **libmpv can feed it.** In encoding mode libmpv will capture an input
-  device and write raw 16-bit PCM to a local TCP socket (`o=tcp://127.0.0.1:
-  <port>`, `of=s16le`, `oac=pcm_s16le`) in real time, starting about 0.3
-  seconds after it is asked. Tested with the test tone (-12.1 dBFS read back
-  from the PCM) and a DirectShow device. So capture can stay as it is.
+- **libmpv can feed it.** libmpv captures the input and "plays" it to its
+  `pcm` audio output, which writes raw 16-bit PCM into a named pipe
+  (`internal/pcmpipe`) a frame (21 ms) at a time. It takes a little over a
+  second to start and then hands over what it captured meanwhile at once.
+  - The first version used libmpv's encoding mode instead (`of=s16le`,
+    `oac=pcm_s16le` to a local TCP socket). That hands PCM over 16384 frames
+    at a time, so the stream went out in lumps a third of a second apart.
+    Measured through VRCDN on 2026-11-13, the oldest audio in each burst
+    reached the listener about 435 ms late; with the pipe it is about
+    185 ms, the same as the FFmpeg path. See [latency.md](latency.md).
 
 `cmd/coreaudioprobe` covers the encoder and RTMP parts: `-o tone.aac` writes
 a file, `-key-file` sends to an ingest.
@@ -92,15 +97,10 @@ with a wrong or empty stream name straight away.
 
 ## Not done
 
-- **It sends in lumps of a third of a second**, which puts a listener up to
-  a third of a second behind or gives them gaps. Found on 2026-11-13 while
-  measuring delay; cause and the likely fix are in
-  [latency.md](latency.md).
-
 - Not tried on air for long, or with a hardware mixer as the input.
 - Only 16-bit stereo at 48 kHz goes to the encoder, which is what the rest
   of the sender uses.
-- If the PC is very busy, PCM could queue in the local socket; nothing
+- If the PC is very busy, PCM could queue in the pipe; nothing
   measures or drains that yet. The FFmpeg path has the same property inside
   libmpv.
 

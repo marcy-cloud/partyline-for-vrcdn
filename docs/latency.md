@@ -14,9 +14,9 @@ runs agreed within 2 ms.
 | Path | FFmpeg AAC | CoreAudio AAC |
 |---|---|---|
 | No network (sender straight into listener) | 46 ms | not measurable this way |
-| VRCDN, RTSP over UDP | 103 ms | 115 ms |
+| VRCDN, RTSP over UDP | 103 ms | 104 ms |
 | VRCDN, RTSP over TCP | 102 ms | not measured |
-| VRCDN, MPEG-TS over HTTPS | 82 ms | 94 ms |
+| VRCDN, MPEG-TS over HTTPS | 82 ms | 83 ms |
 | VRCDN, FLV over HTTPS | 81 ms | not measured |
 
 What follows from them:
@@ -49,18 +49,23 @@ speakers through VRCDN, PartyLine at both ends, is **roughly 150-200 ms**.
 A DJ sending with OBS instead has OBS's own delay in place of the sender's;
 that has not been measured.
 
-## CoreAudio AAC sends in lumps
+## CoreAudio AAC sent in lumps (fixed)
 
-With CoreAudio the freshest audio is only 12 ms later than with FFmpeg, but
-the oldest audio in each burst reaching the listener was about 435 ms late,
-against about 190 ms for FFmpeg in the same test (where 85 ms of it is the
-probe's own doing, see below). The CoreAudio path takes captured audio from
-libmpv as raw PCM through its encoding mode, and that mode hands PCM over
-16384 frames (341 ms) at a time. So the stream goes out a third of a second
-at a time, and a listener is up to a third of a second behind, or hears
-gaps. Not fixed yet. `internal/player/tap.go` gets PCM out of libmpv in
-21 ms pieces by using the `pcm` audio output into a pipe instead; the same
-would work here.
+The first measurement of CoreAudio showed the freshest audio only 12 ms
+later than with FFmpeg (115 ms over RTSP, 94 ms over MPEG-TS), but the
+oldest audio in each burst reaching the listener about 435 ms late, against
+about 190 ms for FFmpeg in the same test. The CoreAudio path took captured
+audio from libmpv as raw PCM through its encoding mode, and that mode hands
+PCM over 16384 frames (341 ms) at a time. So the stream went out a third of
+a second at a time, and a listener was up to a third of a second behind, or
+heard gaps.
+
+Fixed the same day: the capture now goes through libmpv's `pcm` audio
+output into a pipe (`internal/pcmpipe`, `internal/sender/capture.go`),
+which hands it over a frame at a time. Measured again, twice: freshest
+103-104 ms over RTSP and 82-83 ms over MPEG-TS, oldest in a burst about
+185 ms and 163 ms. The two encoders are now level. The table above has the
+figures from after the fix.
 
 ## How the probe works
 
@@ -80,7 +85,8 @@ Things learned building it, all of which gave wrong numbers first:
   and anything that waits for a number of bytes then holds it ten times
   longer than it would hold music. Hence the hiss.
 - **libmpv's encoding mode hands out PCM in 341 ms lumps** (see above), so
-  the first tap, built that way, added up to 65 ms and smeared everything.
+  the first tap, built that way, read about 65 ms late and smeared
+  everything.
 - **Audio arrives in bursts**, so when a beep's burst arrived is not when
   the beep did. The probe times the end of each burst, the one moment that
   is known, and works back along the stream. That is "freshest audio" in
