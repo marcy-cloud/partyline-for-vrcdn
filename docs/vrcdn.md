@@ -215,3 +215,32 @@ On one stream, from one Windows PC, on 2026-11-10 and 2026-11-11:
   one try when its 10 minutes are up, not two.
 - **The default setting falls back to MPEG-TS** when RTSP gets no response
   on UDP or TCP. This is run-time only; the saved connection is not changed.
+
+## Telling whether a stream is online
+
+Checked on 2026-11-14 with the `vrcdn` demo stream (live) and made-up names.
+There is no cheap "is it live" call that we could find.
+
+| Way of asking | Live | Offline or no such stream |
+|---|---|---|
+| `GET` the `.live.ts` or `.live.flv` URL | 200 in about 0.7 s | 401 after about 4.2 s |
+| `HEAD` the same URLs | 200 in 0.2 s | 200 in 0.2 s (useless) |
+| `GET https://api.vrcdn.live/v1/viewers/<name>` | see below | `{"viewers":[]}` in about 1 s |
+| RTSP | audio | no answer at all |
+
+- **The GET is the only real test**, and it is what the player does beside
+  every connection attempt. Live is quick; it is "offline" that is slow,
+  because the server waits about 4 seconds for the stream to turn up. So
+  no answer after 1.5 to 2 seconds already means "almost certainly
+  offline", which would do for a status dot but not for an error message.
+- **The viewers API can only say yes.** It lists viewers by region
+  (`{"viewers":[{"region":"us","total":1}]}`), a few seconds behind. With
+  nobody watching, a live stream gives the same empty list as an offline
+  or nonexistent one. Someone watching proves it is live; an empty list
+  proves nothing. It needs no key. It is the only public endpoint found:
+  other guesses under `api.vrcdn.live` gave 404, and `/v1/health` 401, so
+  there is more behind a login. None of it is documented in the wiki.
+- **A GET on a live stream starts a pull**, however briefly, so it may
+  count as a viewer for a moment (viewer limits are per account). Polling
+  every saved stream every few seconds would be rude; a check when the
+  list is shown, or once a minute, is more in keeping with "do not abuse".
