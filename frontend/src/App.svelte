@@ -338,6 +338,7 @@
       onplay={play}
       onedit={(s) => (editing = s)}
       onadd={() => (editing = { ...blank })}
+      onmove={moveStream}
       onexport={exportStreams}
       onimport={importStreams}
     />

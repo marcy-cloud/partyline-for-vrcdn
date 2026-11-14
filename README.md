@@ -25,6 +25,8 @@ else to install.
   they already have are left as they are, and private streams are never put
   in the file.
 - **One-click switching.** Click a stream, or press `1`–`9`, to cut to it.
+  Drag a stream by the handle at its left to reorder the list (the arrow
+  keys on a handle do the same).
 - **Send, too.** On Windows a Send tab pushes audio only from an input
   device to VRCDN (AAC, 48 kHz, up to 320 kbps, no video), so a DJ can feed
   VJs and dancers without OBS. Places to send to are saved in a wing on the

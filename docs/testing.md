@@ -100,6 +100,11 @@ See [sender.md](sender.md) for what was tested and the commands.
     swallowed the next click.
   - Not tried in a headset: this was found from a report of Virtual Desktop's
     controller pointer and fixed against injected touch.
+- With `PARTYLINE_TEST_REORDER=1` the real-window smoke test also reorders
+  the streams by their handles: by mouse, by the arrow keys, and by touch
+  if `PARTYLINE_TEST_TOUCH=1` is set too. It adds two streams of its own
+  (`zz-reorder-one`, `zz-reorder-two`) to have something to move, deletes
+  them at the end, and warns if the list isn't left as it was found.
 - With `PARTYLINE_TEST_DIALOGS=1` the real-window smoke test also exports the
   stream list and imports it again through the system's file dialogs. It
   types into them, so leave the keyboard alone while it runs. Importing the

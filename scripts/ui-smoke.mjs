@@ -6,7 +6,8 @@
 // key, saves a send target, goes live with the test tone and deletes the
 // target again), opens the dialog, folds a wing and switches theme,
 // saving a screenshot at each step. With PARTYLINE_TEST_TOUCH=1 it also taps
-// and drags the window by injected touch. With PARTYLINE_TEST_DIALOGS=1 it also
+// and drags the window by injected touch. With PARTYLINE_TEST_REORDER=1 it
+// also reorders the streams by their handles. With PARTYLINE_TEST_DIALOGS=1 it also
 // exports the stream list and imports it again through the system's file
 // dialogs, by typing into them: leave the keyboard alone while that runs.
 //
@@ -245,6 +246,65 @@ try {
   // title bar must be what it is dragged by.
   console.log('window buttons:', await js(`[...document.querySelectorAll('.window .titlebar .chrome button')].map((b) => b.getAttribute('aria-label')).join(', ')`),
     '| title bar drag:', await js(`(() => { const c = getComputedStyle(document.querySelector('.window .titlebar')); return 'wails ' + c.getPropertyValue('--wails-draggable').trim() + ', app-region ' + c.getPropertyValue('app-region') })()`))
+  // Reordering the streams by their handles: by mouse, by keyboard and (with
+  // PARTYLINE_TEST_TOUCH as well) by touch. It adds two streams of its own
+  // to have something to move, and deletes them again.
+  if (process.env.PARTYLINE_TEST_REORDER) {
+    const temp = ['zz-reorder-one', 'zz-reorder-two']
+    const order = () => js(`[...document.querySelectorAll('.streams li .label')].map((e) => e.innerText).join(' > ')`)
+    const row = (name) => `[...document.querySelectorAll('.streams li')].find((li) => li.querySelector('.label').innerText === ${JSON.stringify(name)})`
+    const button = (re) => js(`[...document.querySelectorAll('dialog[open] .buttons button')].find((b) => ${re}.test(b.innerText.trim())).click()`)
+    const before = await order()
+    try {
+      for (const name of temp) {
+        await js(`document.querySelector('button[aria-label="Add stream"]').click()`); await sleep(500)
+        await js(`(() => { const el = document.querySelector('dialog[open] input.mono'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, ${JSON.stringify(name)}); el.dispatchEvent(new Event('input', { bubbles: true })) })()`)
+        await button('/^Add$/'); await sleep(700)
+      }
+      console.log('reorder, start:', await order())
+      const grip = async (name) => JSON.parse(await js(`(() => { const r = ${row(name)}.querySelector('.grip').getBoundingClientRect(); return JSON.stringify({ x: r.x + r.width / 2, y: r.y + r.height / 2 }) })()`))
+
+      // Mouse: carry the last row to the top.
+      const from = await grip(temp[1])
+      const top = JSON.parse(await js(`(() => { const r = document.querySelector('.streams li .grip').getBoundingClientRect(); return JSON.stringify({ x: r.x + r.width / 2, y: r.y + r.height / 2 }) })()`))
+      const mouse = (type, x, y) => send('Input.dispatchMouseEvent', { type, x, y, button: 'left', buttons: type === 'mouseReleased' ? 0 : 1, clickCount: 1, pointerType: 'mouse' })
+      await mouse('mousePressed', from.x, from.y)
+      for (let i = 1; i <= 8; i++) { await mouse('mouseMoved', from.x, from.y + (top.y - from.y) * i / 8); await sleep(30) }
+      console.log('  while held:', await order(), '| carried row marked:', await js(`document.querySelector('.streams li.dragging .label')?.innerText ?? null`))
+      await mouse('mouseReleased', top.x, top.y); await sleep(700)
+      console.log('  after a mouse drag of the last row to the top:', await order())
+
+      // Keyboard: the arrow keys on a handle.
+      await js(`${row(temp[1])}.querySelector('.grip').focus()`)
+      for (const type of ['keyDown', 'keyUp']) await send('Input.dispatchKeyEvent', { type, key: 'ArrowDown', code: 'ArrowDown', windowsVirtualKeyCode: 40 })
+      await sleep(700)
+      console.log('  after Arrow Down on its handle:', await order())
+
+      // Touch: a real touch contact on a handle, dragged down one row.
+      if (process.env.PARTYLINE_TEST_TOUCH) {
+        const first = await js(`document.querySelector('.streams li .label').innerText`)
+        const g = await grip(first)
+        const scr = JSON.parse(await js(`JSON.stringify({ x: screenX, y: screenY, s: devicePixelRatio, pitch: document.querySelectorAll('.streams li')[1].getBoundingClientRect().top - document.querySelectorAll('.streams li')[0].getBoundingClientRect().top })`))
+        const r = spawnSync('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', join(import.meta.dirname, 'touch-drag.ps1'), '-AppId', app.pid,
+          '-X', Math.round((scr.x + g.x) * scr.s), '-Y', Math.round((scr.y + g.y) * scr.s), '-DY', Math.round(scr.pitch * scr.s)], { encoding: 'utf8' })
+        await sleep(900)
+        console.log(`  after a touch drag of "${first}" down one row:`, r.status === 0 ? await order() : String(r.stderr).trim().split('\n')[0])
+      }
+    } finally {
+      // Put things back: the temporary streams go, and whatever is left
+      // must be in the order it started in.
+      await js(`document.querySelector('dialog[open] button[aria-label="Close"]')?.click()`)
+      for (const name of temp) {
+        if (!(await js(`!!${row(name)}`))) continue
+        await js(`${row(name)}.querySelector('.edit').click()`); await sleep(500)
+        await button('/^Delete$/'); await sleep(300)
+        await button('/^Really delete$/'); await sleep(700)
+      }
+      const after = await order()
+      console.log('reorder, cleaned up:', after, after === before ? '(as it was)' : `(WARNING: was ${before})`)
+    }
+  }
+
   // Dragging by touch, which is also how a VR controller pointer can arrive
   // (Virtual Desktop and the like). A real touch contact is injected, so the
   // window must be in front and nothing else should be touched meanwhile.
