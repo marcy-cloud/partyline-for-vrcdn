@@ -16,7 +16,14 @@ html {
   background: transparent;
 }
 
-.titlebar {
+/* Two ways of saying "drag the window by this", and only ever one at a
+   time. --wails-draggable is Wails's own and follows the mouse only. On
+   Windows (html.native-drag, set in main.ts) app-region makes the area a
+   real title bar instead, which Windows itself drags: that also works by
+   touch, pen and a VR controller pointer. With both on, a touch drag leaves
+   Wails believing a mouse drag never ended, and it swallows the next click. */
+.titlebar,
+.wing header {
   --wails-draggable: drag;
 }
 
@@ -25,6 +32,15 @@ input,
 select,
 a {
   --wails-draggable: no-drag;
+}
+
+.native-drag :is(.titlebar, .wing header) {
+  --wails-draggable: no-drag;
+  app-region: drag;
+}
+
+.native-drag :is(button, input, select, a) {
+  app-region: no-drag;
 }
 
 body {
@@ -362,7 +378,6 @@ select.input {
 
 /* The other place to drag the window by. */
 .wing header {
-  --wails-draggable: drag;
   display: flex;
   align-items: center;
   justify-content: space-between;

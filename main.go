@@ -83,6 +83,13 @@ func main() {
 		Frameless:        true,
 		BackgroundType:   application.BackgroundTypeTransparent,
 		BackgroundColour: application.NewRGBA(0, 0, 0, 0),
+		Windows: application.WindowsWindow{
+			// Lets the CSS "app-region: drag" areas act as a real title
+			// bar, so Windows itself moves the window. Without it only a
+			// mouse can drag: touch, pen and VR controller pointers that
+			// act as touch never produce the mouse moves Wails listens for.
+			NonClientRegionSupport: true,
+		},
 		URL:              "/",
 	})
 

@@ -5,7 +5,8 @@
 // button, looks at the Send tab (and, if PARTYLINE_TEST_KEY holds a stream
 // key, saves a send target, goes live with the test tone and deletes the
 // target again), opens the dialog, folds a wing and switches theme,
-// saving a screenshot at each step. With PARTYLINE_TEST_DIALOGS=1 it also
+// saving a screenshot at each step. With PARTYLINE_TEST_TOUCH=1 it also taps
+// and drags the window by injected touch. With PARTYLINE_TEST_DIALOGS=1 it also
 // exports the stream list and imports it again through the system's file
 // dialogs, by typing into them: leave the keyboard alone while that runs.
 //
@@ -235,13 +236,59 @@ try {
   await js(`document.querySelector('button[aria-label="Add stream"]').click()`)
   await sleep(700)
   await shot('smoke-dialog')
-  await js(`document.querySelector('dialog button[aria-label="Close"]').click()`)
+  await js(`document.querySelector('dialog[open] button[aria-label="Close"]').click()`)
+  await sleep(300)
+  if (await js(`!!document.querySelector('dialog[open]')`)) console.log('WARNING: the dialog did not close')
   await js(`document.querySelector('.foot button').click()`)
   await sleep(400)
   // The window has no Windows frame: its own buttons must be there, and the
   // title bar must be what it is dragged by.
   console.log('window buttons:', await js(`[...document.querySelectorAll('.window .titlebar .chrome button')].map((b) => b.getAttribute('aria-label')).join(', ')`),
-    '| title bar drag:', await js(`getComputedStyle(document.querySelector('.window .titlebar')).getPropertyValue('--wails-draggable').trim()`))
+    '| title bar drag:', await js(`(() => { const c = getComputedStyle(document.querySelector('.window .titlebar')); return 'wails ' + c.getPropertyValue('--wails-draggable').trim() + ', app-region ' + c.getPropertyValue('app-region') })()`))
+  // Dragging by touch, which is also how a VR controller pointer can arrive
+  // (Virtual Desktop and the like). A real touch contact is injected, so the
+  // window must be in front and nothing else should be touched meanwhile.
+  if (process.env.PARTYLINE_TEST_TOUCH) {
+    const at = () => js(`JSON.stringify({ x: screenX, y: screenY })`).then(JSON.parse)
+    const touchDrag = async (selector, dx, dy) => {
+      // A spot in the element that isn't on one of its buttons.
+      const from = JSON.parse(await js(`(() => {
+        const r = document.querySelector('${selector}').getBoundingClientRect(), s = devicePixelRatio
+        return JSON.stringify({ x: Math.round((screenX + r.left + r.width * 0.6) * s), y: Math.round((screenY + r.top + r.height / 2) * s) })
+      })()`))
+      const before = await at()
+      const r = spawnSync('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', join(import.meta.dirname, 'touch-drag.ps1'), '-AppId', app.pid, '-X', from.x, '-Y', from.y, '-DX', dx, '-DY', dy], { encoding: 'utf8' })
+      await sleep(1500)
+      const after = await at()
+      return r.status === 0 ? `moved ${after.x - before.x},${after.y - before.y}` : r.stderr.trim().split('\n')[0]
+    }
+    // Buttons inside a drag area must still take a tap: here, the Send tab.
+    const tap = async (find) => {
+      const p = JSON.parse(await js(`(() => {
+        const r = (${find}).getBoundingClientRect(), s = devicePixelRatio
+        return JSON.stringify({ x: Math.round((screenX + r.left + r.width / 2) * s), y: Math.round((screenY + r.top + r.height / 2) * s) })
+      })()`))
+      const r = spawnSync('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', join(import.meta.dirname, 'touch-drag.ps1'), '-AppId', app.pid, '-X', p.x, '-Y', p.y], { encoding: 'utf8' })
+      if (r.status !== 0) console.log('  tap not made:', String(r.stderr).trim().split('\n')[0])
+      await sleep(600)
+    }
+    // A tap somewhere ordinary first, to know taps arrive at all.
+    const theme = () => js(`document.documentElement.dataset.theme`)
+    const themeWas = await theme()
+    await tap(`document.querySelector('.foot button')`)
+    const themeNow = await theme()
+    if (themeNow !== themeWas) await tap(`document.querySelector('.foot button')`)
+    console.log('touch tap on the theme switch:', themeWas, '->', themeNow, '->', await theme())
+    const tab = (name) => `[...document.querySelectorAll('.tabs .tab')].find((b) => /${name}/.test(b.innerText))`
+    await tap(tab('send'))
+    const selected = () => js(`document.querySelector('.tabs .tab[aria-selected="true"]')?.innerText.trim()`)
+    const onSend = await selected()
+    await tap(tab('now-playing'))
+    console.log('touch tap on the send tab selects:', onSend, '| and back:', await selected())
+    console.log('touch drag by 120,80 on the title bar:', await touchDrag('.window .titlebar', 120, 80),
+      '| back by the streams heading:', await touchDrag('.streams header', -120, -80))
+  }
+
   // The wings fold, and the window narrows and widens with them.
   const width = () => js(`innerWidth`)
   const wide = await width()

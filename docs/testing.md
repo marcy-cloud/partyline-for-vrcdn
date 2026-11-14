@@ -77,6 +77,23 @@ See [sender.md](sender.md) for what was tested and the commands.
 - `cmd/sendprobe` sends from a console. Its default input is the -12 dB test
   tone, so nothing from the PC goes out by accident. The stream key is read
   from a file, never passed on the command line.
+- With `PARTYLINE_TEST_TOUCH=1` the real-window smoke test also taps and
+  drags the window with an injected touch contact (`scripts/touch-drag.ps1`):
+  a tap on the theme switch, a tap on a tab inside the title bar, and a drag
+  by the title bar and by a wing's heading. This is the stand-in for a touch
+  screen, a pen and a VR controller pointer (Virtual Desktop). It touches the
+  real desktop, so the script first brings the app to the front and refuses
+  to touch anything if another window is still in the way.
+  - Why it matters: Wails's own dragging (`--wails-draggable`) listens for
+    mouse moves only, and a touch drag never produces any, so the window
+    didn't move at all. On Windows the title bars are now WebView2
+    `app-region: drag` areas (`NonClientRegionSupport` in `main.go`,
+    `html.native-drag` in `base.css`), which Windows itself drags.
+  - Use one mechanism or the other on an element, never both: with both, a
+    touch drag left Wails believing a mouse drag was still going on and it
+    swallowed the next click.
+  - Not tried in a headset: this was found from a report of Virtual Desktop's
+    controller pointer and fixed against injected touch.
 - With `PARTYLINE_TEST_DIALOGS=1` the real-window smoke test also exports the
   stream list and imports it again through the system's file dialogs. It
   types into them, so leave the keyboard alone while it runs. Importing the
