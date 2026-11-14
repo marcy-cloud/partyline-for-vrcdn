@@ -173,37 +173,75 @@ func TestOpenFailureIsReported(t *testing.T) {
 	}
 }
 
-func TestStalledInputReconnects(t *testing.T) {
-	h := newHarness(t)
-	h.s.tuning.StallTimeout = 60 * time.Millisecond
-	h.s.Start(good)
-	f := h.session(t)
-	f.events <- sessionEvent{kind: sessionStarted}
-	h.waitFor(t, Live)
-	// Freeze the encoder's clock: nothing is coming from the device.
-	f.mu.Lock()
-	f.pos = -1e9
-	f.mu.Unlock()
-	hold := make(chan struct{})
-	go func() {
-		for {
-			select {
-			case <-hold:
-				return
-			default:
-				f.mu.Lock()
-				f.pos = 42
-				f.mu.Unlock()
-				time.Sleep(time.Millisecond)
+// knowing is a session that can say which end it is waiting on.
+type knowing struct {
+	*fakeSession
+	cause stallCause
+}
+
+func (k knowing) stalledOn() stallCause { return k.cause }
+
+// When audio stops going out, the message names the end that stopped where
+// that is known, and doesn't blame the input where it isn't.
+func TestStallSaysWhatStalled(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		cause     *stallCause // nil: the session can't say
+		reachable bool
+		want      string
+	}{
+		{"the session is waiting on the server", ptr(stallNetwork), true, msgNetworkStalled},
+		{"the session is waiting on the input", ptr(stallInput), false, msgInputStalled},
+		{"can't say, and the server can't be reached", nil, false, msgNetworkStalled},
+		{"can't say, and the server answers", nil, true, msgStalled},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newHarness(t)
+			h.s.tuning.StallTimeout = 60 * time.Millisecond
+			h.s.reachable = func(ingest string) bool {
+				if ingest != good.Ingest {
+					t.Errorf("asked about %q", ingest)
+				}
+				return tc.reachable
 			}
-		}
-	}()
-	st := h.waitFor(t, Reconnecting)
-	close(hold)
-	if !strings.Contains(st.Message, "stopped delivering") {
-		t.Errorf("message = %q", st.Message)
+			if tc.cause != nil {
+				open := h.s.open
+				h.s.open = func(cfg Config) (session, error) {
+					sess, err := open(cfg)
+					if err != nil {
+						return nil, err
+					}
+					return knowing{sess.(*fakeSession), *tc.cause}, nil
+				}
+			}
+			h.s.Start(good)
+			f := h.session(t)
+			f.events <- sessionEvent{kind: sessionStarted}
+			h.waitFor(t, Live)
+			// Freeze the encoder's clock: nothing is going out.
+			hold := make(chan struct{})
+			defer close(hold)
+			go func() {
+				for {
+					select {
+					case <-hold:
+						return
+					default:
+						f.mu.Lock()
+						f.pos = 42
+						f.mu.Unlock()
+						time.Sleep(time.Millisecond)
+					}
+				}
+			}()
+			if st := h.waitFor(t, Reconnecting); st.Message != tc.want {
+				t.Errorf("message = %q, want %q", st.Message, tc.want)
+			}
+		})
 	}
 }
+
+func ptr[T any](v T) *T { return &v }
 
 func TestValidate(t *testing.T) {
 	bad := []func(*Config){

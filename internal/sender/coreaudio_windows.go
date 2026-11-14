@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/bluenviron/gortmplib"
@@ -48,6 +49,9 @@ type coreAudioSession struct {
 	rtmp *gortmplib.Client
 	enc  *coreaudio.Encoder
 	key  string
+
+	// writing is true while the pump waits for the server to take a frame.
+	writing atomic.Bool
 
 	mu      sync.Mutex
 	started bool // the goroutines are running
@@ -221,7 +225,9 @@ func (s *coreAudioSession) pump() {
 		n := s.sent
 		s.sent++
 		s.mu.Unlock()
+		s.writing.Store(true)
 		err = s.rtmp.Write(aacMessage(rtmpmsg.Audio{AACType: rtmpmsg.AudioAACTypeAU, AU: packet, DTS: time.Duration(n) * caFrameTime}))
+		s.writing.Store(false)
 		if err != nil {
 			if !s.stopping() {
 				s.end("")
@@ -273,6 +279,15 @@ func (s *coreAudioSession) wait(timeout time.Duration) sessionEvent {
 	case <-time.After(timeout):
 		return sessionEvent{}
 	}
+}
+
+// stalledOn says what the pump is waiting for: the server to take a frame,
+// or the input to deliver one.
+func (s *coreAudioSession) stalledOn() stallCause {
+	if s.writing.Load() {
+		return stallNetwork
+	}
+	return stallInput
 }
 
 func (s *coreAudioSession) position() (float64, bool) {

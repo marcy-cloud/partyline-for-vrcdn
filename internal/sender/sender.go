@@ -7,6 +7,8 @@ package sender
 import (
 	"errors"
 	"fmt"
+	"net"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -119,6 +121,8 @@ type Sender struct {
 	tuning Tuning
 	// open starts one connection; replaced in tests.
 	open func(Config) (session, error)
+	// reachable reports whether the ingest answers at all; replaced in tests.
+	reachable func(ingest string) bool
 
 	mu    sync.Mutex
 	state State
@@ -128,7 +132,7 @@ type Sender struct {
 
 // New returns an idle sender.
 func New(tuning Tuning, hooks Hooks) *Sender {
-	return &Sender{hooks: hooks, tuning: tuning, open: openSession, state: State{Status: Off}}
+	return &Sender{hooks: hooks, tuning: tuning, open: openSession, reachable: reachable, state: State{Status: Off}}
 }
 
 // State returns the current snapshot.
@@ -317,14 +321,77 @@ func (s *Sender) attempt(cfg Config, stop <-chan struct{}) (detail string, live 
 		if l, ok := sess.levels(); ok && s.hooks.Levels != nil {
 			s.hooks.Levels(l)
 		}
-		// An input that stops delivering doesn't end the connection; the
-		// encoder just has nothing to send.
+		// Neither a dead input nor a network that has stopped taking data
+		// ends the connection by itself: audio just stops going out.
 		if pos, ok := sess.position(); ok && pos != lastPos {
 			lastPos, lastProgress = pos, time.Now()
 		} else if time.Since(lastProgress) > s.tuning.StallTimeout {
-			return "the input stopped delivering audio", live
+			return s.whyStalled(cfg, sess), live
 		}
 	}
+}
+
+// What stopped the audio going out, where that is known.
+type stallCause int
+
+const (
+	stallUnknown stallCause = iota
+	stallInput              // nothing is coming from the input
+	stallNetwork            // the server, or the way to it, isn't taking data
+)
+
+// staller is a session that can tell which end it is waiting on.
+type staller interface{ stalledOn() stallCause }
+
+// The messages for a stall. They must not contain any of the phrases
+// explain looks for.
+const (
+	msgInputStalled   = "The input stopped delivering audio"
+	msgNetworkStalled = "The connection to the server stalled. Check your internet connection."
+	msgStalled        = "No audio was getting out. The connection or the input stalled."
+)
+
+// whyStalled says which end stopped. A session that knows is asked. One
+// that doesn't (libmpv's, where capture and sending are one pipeline that
+// stops as a whole) is judged by whether the server can be reached at this
+// moment: if not, it is the network; if so, it could be either, and the
+// message says so rather than blame the input.
+func (s *Sender) whyStalled(cfg Config, sess session) string {
+	cause := stallUnknown
+	if st, ok := sess.(staller); ok {
+		cause = st.stalledOn()
+	}
+	if cause == stallUnknown && !s.reachable(cfg.Ingest) {
+		cause = stallNetwork
+	}
+	switch cause {
+	case stallInput:
+		return msgInputStalled
+	case stallNetwork:
+		return msgNetworkStalled
+	}
+	return msgStalled
+}
+
+// reachable reports whether a connection to the ingest can be opened.
+func reachable(ingest string) bool {
+	u, err := url.Parse(ingest)
+	if err != nil || u.Hostname() == "" {
+		return false
+	}
+	port := u.Port()
+	if port == "" {
+		port = map[string]string{"rtmps": "443"}[u.Scheme]
+		if port == "" {
+			port = "1935"
+		}
+	}
+	conn, err := net.DialTimeout("tcp", net.JoinHostPort(u.Hostname(), port), 2*time.Second)
+	if err != nil {
+		return false
+	}
+	conn.Close()
+	return true
 }
 
 // explain turns engine failure text into something a DJ can act on.
