@@ -97,6 +97,18 @@ type Tuning struct {
 	CatchUpSustain time.Duration
 	// CatchUpSpeed is the playback rate used while catching up.
 	CatchUpSpeed float64
+	// CatchUpReach is how far over the threshold playing fast may be used
+	// to get back. Further behind than that, playing fast would go on for
+	// many seconds, which is worse to listen to than one skip.
+	CatchUpReach time.Duration
+	// StarvedAfter is how long playback may stand still before it counts as
+	// a dropout. What has queued up by the time a dropout ends is skipped
+	// at once, like the backlog at the start of a stream.
+	StarvedAfter time.Duration
+	// RecoverWindow is how long after a dropout ends, or after a skip, more
+	// of the same backlog may still be on its way. Until it has been quiet
+	// for that long, whatever shows up over the threshold is skipped too.
+	RecoverWindow time.Duration
 }
 
 // DefaultTuning returns the timings used by the app.
@@ -112,6 +124,9 @@ func DefaultTuning() Tuning {
 		StallTimeout:   4 * time.Second,
 		CatchUpSustain: time.Second,
 		CatchUpSpeed:   1.1,
+		CatchUpReach:   300 * time.Millisecond,
+		StarvedAfter:   500 * time.Millisecond,
+		RecoverWindow:  time.Second,
 	}
 }
 
@@ -159,6 +174,8 @@ type Controller struct {
 	overSince    time.Time
 	// fresh is true from a stream starting until its first buffer reading.
 	fresh bool
+	// recoverUntil is set when a dropout has just ended; see RecoverWindow.
+	recoverUntil time.Time
 }
 
 type liveCheck struct {
@@ -524,6 +541,9 @@ func (c *Controller) tick(ev Event) {
 	// standing still is the tell.
 	if ev.HavePos {
 		if ev.PosSec != c.lastPos {
+			if now.Sub(c.lastProgress) > c.tuning.StarvedAfter {
+				c.recoverUntil = now.Add(c.tuning.RecoverWindow)
+			}
 			c.lastPos = ev.PosSec
 			c.lastProgress = now
 		} else if now.Sub(c.lastProgress) > c.tuning.StallTimeout {
@@ -538,24 +558,44 @@ func (c *Controller) tick(ev Event) {
 	c.catchUp(now, fresh)
 }
 
-// catchUp drains latency that accumulates when the network delivers a burst
-// after a pause. Moderate excess is played off slightly fast; a large excess
-// is simply dropped.
+// catchUp gets playback back to live when audio has queued up, which is
+// what happens when the network delivers a burst after a pause.
 //
-// fresh marks the first reading of a stream. Whatever is queued by then
-// arrived while connecting (servers often open with a burst of recent
-// audio); almost none of it has been heard, so it is dropped outright rather
-// than played off over several seconds.
+// Being a little behind is played off slightly fast, which is hardly
+// noticed. That only works for a little: at 1.1 times speed a second and a
+// half takes a quarter of a minute, tempo off all the while. So anything
+// further behind is skipped: one jump to live, and normal speed again.
+//
+//   - Over the threshold by up to CatchUpReach, for CatchUpSustain: play
+//     fast.
+//   - Over it by more than that, for CatchUpSustain: skip.
+//   - Seconds behind: skip at once.
+//   - Anything over the threshold on a stream's first reading (fresh), or
+//     just after a dropout: skip at once. What queued up while connecting,
+//     or while nothing was getting through, is stale by definition.
+//
+// A backlog may arrive over several seconds, so one skip may not be the
+// end of it. After any skip, more that shows up within RecoverWindow is
+// skipped at once as well, until the stream has been steady that long.
 func (c *Controller) catchUp(now time.Time, fresh bool) {
 	if !c.opts.AutoCatchUp {
 		return
 	}
 	above := c.opts.CatchUpAboveMs
 	buf := c.state.BufferMs
+	fresh = fresh || now.Before(c.recoverUntil)
 
 	if buf > max(4*above, 2000) || (fresh && buf > above) {
-		c.endCatchUp()
-		_ = c.engine.DropBuffers()
+		c.skip()
+		return
+	}
+	if buf > above+int(c.tuning.CatchUpReach/time.Millisecond) {
+		if c.overSince.IsZero() {
+			c.overSince = now
+		}
+		if now.Sub(c.overSince) >= c.tuning.CatchUpSustain {
+			c.skip()
+		}
 		return
 	}
 
@@ -578,6 +618,13 @@ func (c *Controller) catchUp(now time.Time, fresh bool) {
 			c.state.CatchingUp = true
 		}
 	}
+}
+
+// skip jumps to live by discarding what is queued.
+func (c *Controller) skip() {
+	c.endCatchUp()
+	c.recoverUntil = time.Now().Add(c.tuning.RecoverWindow)
+	_ = c.engine.DropBuffers()
 }
 
 func (c *Controller) endCatchUp() {

@@ -35,6 +35,15 @@ as possible. Everything after the VJ's visualiser is out of scope.
 - **Latency is the product.** Every design choice should favour the shortest
   delay from the DJ to the listener. A glitch is better than a delay that
   creeps up, which is why the player drops or speeds through queued audio.
+  - From a show, 2026-11-14: a DJ's connection kept dropping out for a few
+    seconds at a time. Each time, the audio that had queued up arrived in a
+    rush and the player played it 10% fast to catch up, for many seconds:
+    tempo off, and still behind. The listener had to press Resync by hand.
+    Reproduced: a 2 second dropout cost 11 seconds of fast playback. Playing
+    fast is now only for being a little behind (about half a second at
+    most); a backlog after a dropout is skipped at once, and skipping goes
+    on until the stream has been steady for a second. The same 2 second
+    dropout is back at live in 0.3 seconds. (`recovery_live_test.go`)
 - **The listeners are performers, not an audience.** VJs and dancers are
   busy mid-show. Switching streams between DJs must be one click or one key,
   and the app must recover by itself when a stream drops or a DJ goes live.

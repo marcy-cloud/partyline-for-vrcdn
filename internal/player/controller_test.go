@@ -97,6 +97,8 @@ func testTuning() Tuning {
 		FallbackAfter:  5 * time.Second,
 		StallTimeout:   5 * time.Second,
 		CatchUpSustain: 0,
+		CatchUpReach:   300 * time.Millisecond,
+		StarvedAfter:   time.Hour,
 		CatchUpSpeed:   1.1,
 	}
 }
@@ -326,7 +328,7 @@ func TestCatchUp(t *testing.T) {
 		t.Fatal("catching up below threshold")
 	}
 
-	f.tick(0.60, 2)
+	f.tick(0.45, 2)
 	waitFor(t, "catch-up to start", func() bool { return c.State().CatchingUp })
 	if f.lastSpeed() != 1.1 {
 		t.Errorf("speed = %v, want 1.1", f.lastSpeed())
@@ -381,7 +383,7 @@ func TestStartsAtTheLiveEdge(t *testing.T) {
 	}
 
 	// Only the first reading is treated that way.
-	f.tick(0.8, 2)
+	f.tick(0.5, 2)
 	waitFor(t, "catch-up", func() bool { return c.State().CatchingUp })
 	if f.dropCount() != 1 {
 		t.Errorf("drops = %d, want 1", f.dropCount())
@@ -395,6 +397,106 @@ func TestStartsAtTheLiveEdge(t *testing.T) {
 	waitStatus(t, c, Playing)
 	f.tick(0.8, 1)
 	waitFor(t, "drop after reconnect", func() bool { return f.dropCount() == 2 })
+}
+
+// Too far behind to play off in a few seconds: skip to live instead of
+// playing fast for a quarter of a minute.
+func TestFarBehindSkipsInsteadOfPlayingFast(t *testing.T) {
+	c, f := start(t, defaultOpts, testTuning())
+	c.Play(djA)
+	f.started()
+	waitStatus(t, c, Playing)
+	f.tick(0.02, 1)
+	waitFor(t, "reading", func() bool { return c.State().BufferMs == 20 })
+
+	f.tick(1.5, 2) // well under the 2 s that was always dropped
+	waitFor(t, "skip", func() bool { return f.dropCount() == 1 })
+	if c.State().CatchingUp || f.lastSpeed() == 1.1 {
+		t.Error("1.5 s behind was played fast instead of skipped")
+	}
+
+	// Falling that far behind while already playing fast: skip too.
+	f.tick(0.4, 3)
+	waitFor(t, "catch-up", func() bool { return c.State().CatchingUp })
+	f.tick(0.9, 4)
+	waitFor(t, "second skip", func() bool { return f.dropCount() == 2 })
+	if c.State().CatchingUp || f.lastSpeed() != 1 {
+		t.Errorf("still playing fast after the skip (speed %v)", f.lastSpeed())
+	}
+}
+
+// Like the others, a skip waits for the excess to last, so one late burst
+// on a jittery link doesn't cost a skip.
+func TestFarBehindMustLastBeforeSkipping(t *testing.T) {
+	tuning := testTuning()
+	tuning.CatchUpSustain = time.Hour
+	c, f := start(t, defaultOpts, tuning)
+	c.Play(djA)
+	f.started()
+	waitStatus(t, c, Playing)
+	f.tick(0.02, 1)
+	waitFor(t, "reading", func() bool { return c.State().BufferMs == 20 })
+	f.tick(1.5, 2)
+	waitFor(t, "reading", func() bool { return c.State().BufferMs == 1500 })
+	if f.dropCount() != 0 {
+		t.Error("skipped on a single reading")
+	}
+	// Seconds behind is past waiting for.
+	f.tick(2.5, 3)
+	waitFor(t, "skip", func() bool { return f.dropCount() == 1 })
+}
+
+// After a dropout, what queued up meanwhile is skipped as soon as it shows,
+// without waiting to see whether it lasts.
+func TestBacklogAfterADropoutIsSkippedAtOnce(t *testing.T) {
+	tuning := testTuning()
+	tuning.CatchUpSustain = time.Hour
+	tuning.StarvedAfter = 30 * time.Millisecond
+	tuning.RecoverWindow = time.Hour
+	c, f := start(t, defaultOpts, tuning)
+	c.Play(djA)
+	f.started()
+	waitStatus(t, c, Playing)
+	f.tick(0.02, 1)
+	waitFor(t, "reading", func() bool { return c.State().BufferMs == 20 })
+
+	// Nothing arrives: the position stands still.
+	for i := 0; i < 4; i++ {
+		time.Sleep(20 * time.Millisecond)
+		f.tick(0, 1)
+	}
+	// It comes back, with a backlog that is still arriving.
+	f.tick(0.1, 1.1)
+	waitFor(t, "reading", func() bool { return c.State().BufferMs == 100 })
+	if f.dropCount() != 0 {
+		t.Fatal("skipped with nothing over the threshold")
+	}
+	f.tick(0.4, 1.2)
+	waitFor(t, "skip", func() bool { return f.dropCount() == 1 })
+	// More of it arriving is skipped too...
+	f.tick(0.4, 1.3)
+	waitFor(t, "second skip", func() bool { return f.dropCount() == 2 })
+}
+
+// ...until the stream has been steady for a while, after which a little
+// excess is ordinary again and is played off, not skipped.
+func TestSkippingStopsOnceSteady(t *testing.T) {
+	tuning := testTuning()
+	tuning.RecoverWindow = 40 * time.Millisecond
+	c, f := start(t, defaultOpts, tuning)
+	c.Play(djA)
+	f.started()
+	waitStatus(t, c, Playing)
+	f.tick(1.5, 1) // the start-up backlog: skipped
+	waitFor(t, "skip", func() bool { return f.dropCount() == 1 })
+	f.tick(0.02, 2)
+	waitFor(t, "reading", func() bool { return c.State().BufferMs == 20 })
+	time.Sleep(60 * time.Millisecond)
+	f.tick(0.4, 3)
+	waitFor(t, "catch-up", func() bool { return c.State().CatchingUp })
+	if f.dropCount() != 1 {
+		t.Errorf("drops = %d, want 1", f.dropCount())
+	}
 }
 
 func TestCatchUpDisabled(t *testing.T) {
@@ -418,7 +520,7 @@ func TestSwitchingStreamsResetsSpeed(t *testing.T) {
 	f.started()
 	waitStatus(t, c, Playing)
 	f.tick(0.01, 1)
-	f.tick(0.6, 2)
+	f.tick(0.45, 2)
 	waitFor(t, "catch-up", func() bool { return c.State().CatchingUp })
 
 	c.Play(djB)

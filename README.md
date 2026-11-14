@@ -36,8 +36,11 @@ else to install.
   live.
 - **Buffer readout and resync.** Shows how much audio is queued (the part of
   the delay the player is responsible for). *Resync* drops it. *Auto catch-up*
-  skips whatever queued up while connecting, plays 10% fast when the queue
-  later stays above a threshold, and drops it outright if it gets very large.
+  keeps playback at live. A little behind (up to about half a second) is
+  played off 10% fast. Anything more is skipped in one jump: what queued up
+  while connecting, what arrives in a rush after the stream or the network
+  drops out for a moment, and any backlog too big to play off in a few
+  seconds.
 - **Output device and volume**, remembered between runs.
 - **Stereo level meter.** Shows the level of the incoming audio per channel,
   measured before the volume control, so you can see a stream has signal
@@ -58,8 +61,11 @@ else to install.
   live.
 - **Buffer readout and resync.** Shows how much audio is queued (the part of
   the delay the player is responsible for). *Resync* drops it. *Auto catch-up*
-  skips whatever queued up while connecting, plays 10% fast when the queue
-  later stays above a threshold, and drops it outright if it gets very large.
+  keeps playback at live. A little behind (up to about half a second) is
+  played off 10% fast. Anything more is skipped in one jump: what queued up
+  while connecting, what arrives in a rush after the stream or the network
+  drops out for a moment, and any backlog too big to play off in a few
+  seconds.
 - **Output device and volume**, remembered between runs.
 - **Stereo level meter.** Shows the level of the incoming audio per channel,
   measured before the volume control, so you can see a stream has signal
