@@ -1,5 +1,9 @@
 /* Element defaults and the shared button and field styles. */
-* {
+/* Generated ::before and ::after boxes too: "*" alone doesn't reach them,
+   and a switch's knob then grows by its border and hangs out of its track. */
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 

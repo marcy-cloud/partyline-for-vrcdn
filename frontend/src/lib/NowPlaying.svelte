@@ -752,17 +752,20 @@
     transition: background var(--gt-dur-base);
   }
 
+  /* The knob: centred in the track whatever the border comes to, with the
+     same 2px gap at either end of its travel. */
   .toggle input::before {
     content: '';
     position: absolute;
-    top: 1px;
-    left: 1px;
+    top: 50%;
+    left: 2px;
     width: 16px;
     height: 16px;
     border: var(--gt-border-width) solid var(--gt-lavender);
     border-radius: 50%;
     background: var(--gt-white);
-    transition: translate var(--gt-dur-base) var(--gt-ease-pop);
+    translate: 0 -50%;
+    transition: left var(--gt-dur-base) var(--gt-ease-pop);
   }
 
   .toggle input:checked {
@@ -771,7 +774,7 @@
   }
 
   .toggle input:checked::before {
-    translate: 16px 0;
+    left: calc(100% - 18px);
   }
 
   .threshold {
