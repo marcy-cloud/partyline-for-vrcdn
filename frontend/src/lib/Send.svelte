@@ -31,12 +31,19 @@
   )
   let ingestName = $derived(info.ingests.find((i) => i.url === target?.ingest)?.name ?? '')
 
-  // The saved input may be unplugged; keep it listed so the choice survives.
-  let devices = $derived(
-    !info.settings.device || info.devices.some((d) => d.id === info.settings.device)
-      ? info.devices
-      : [...info.devices, { id: info.settings.device, name: 'Saved input (not connected)' }],
-  )
+  // The saved input may be unplugged, or a program that isn't open; keep it
+  // listed so the choice survives.
+  const isProgram = (id: string) => id.startsWith('app:')
+  let saved = $derived(info.settings.device)
+  let missing = $derived(!!saved && !info.devices.some((d) => d.id === saved))
+  let inputs = $derived([
+    ...info.devices.filter((d) => !d.program),
+    ...(missing && !isProgram(saved) ? [{ id: saved, name: 'Saved input (not connected)' }] : []),
+  ])
+  let programs = $derived([
+    ...info.devices.filter((d) => d.program),
+    ...(missing && isProgram(saved) ? [{ id: saved, name: `${saved.slice(4).replace(/\.exe$/i, '')} (not running)` }] : []),
+  ])
 
   let now = $state(Date.now())
   $effect(() => {
@@ -107,11 +114,25 @@
       disabled={busy}
     >
       {#if !info.settings.device}<option value="">Choose an input…</option>{/if}
-      {#each devices as d (d.id)}
-        <option value={d.id}>{d.name}</option>
-      {/each}
+      <optgroup label="Inputs">
+        {#each inputs as d (d.id)}
+          <option value={d.id}>{d.name}</option>
+        {/each}
+      </optgroup>
+      <!-- A DJ program on this PC: only its sound is sent, nothing else's. -->
+      <optgroup label={programs.length ? 'Programs playing sound' : 'Programs playing sound (none right now)'}>
+        {#each programs as d (d.id)}
+          <option value={d.id}>{d.name}</option>
+        {/each}
+      </optgroup>
     </select>
-    <button class="icon-btn" onclick={onrefresh} disabled={busy} aria-label="Look for inputs again" title="Look for inputs again">
+    <button
+      class="icon-btn"
+      onclick={onrefresh}
+      disabled={busy}
+      aria-label="Look for inputs and programs again"
+      title="Look for inputs and programs again"
+    >
       <Icon name="resync" />
     </button>
   </label>

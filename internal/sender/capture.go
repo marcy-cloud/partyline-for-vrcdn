@@ -10,6 +10,25 @@ import (
 	"partyline/internal/pcmpipe"
 )
 
+// pcmSource is somewhere raw audio comes from, for encoders libmpv doesn't
+// have: 48 kHz stereo 16-bit little-endian, a piece at a time as it comes.
+type pcmSource interface {
+	// audio waits for the source to start and returns its PCM. Reads end
+	// when the source is closed.
+	audio() (io.ReadCloser, error)
+	// gone gets the reason if the source gives out by itself.
+	gone() <-chan string
+	close()
+}
+
+// openSource opens the source for a device ID.
+func openSource(device string) (pcmSource, error) {
+	if strings.HasPrefix(device, AppInput) {
+		return openApp(device)
+	}
+	return openCapture(device)
+}
+
 // capture is a libmpv core used only to capture: it reads an input and
 // hands the audio over as raw PCM, 48 kHz stereo 16-bit little-endian, a
 // piece at a time as it comes (about 21 ms each). It is for encoders libmpv
@@ -52,6 +71,9 @@ func openCapture(device string) (*capture, error) {
 		{"audio-format", "s16"},
 		{"audio-samplerate", "48000"},
 		{"audio-channels", "stereo"},
+	}
+	if af := filters(device); af != "" {
+		options = append(options, [2]string{"af", af})
 	}
 	for _, kv := range append(options, inputOptions...) {
 		if err := m.SetOption(kv[0], kv[1]); err != nil {
@@ -103,9 +125,8 @@ func (c *capture) watch() {
 	}
 }
 
-// audio waits for the capture to start and returns its PCM. Reads end when
-// the capture is closed.
 func (c *capture) audio() (io.ReadCloser, error) { return c.pipe.Accept() }
+func (c *capture) gone() <-chan string           { return c.ended }
 
 // close stops capturing. Anything reading the audio sees it end.
 func (c *capture) close() {

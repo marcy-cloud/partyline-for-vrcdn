@@ -62,7 +62,7 @@ func TestCaptureDeliversAudioAsItComes(t *testing.T) {
 	var res result
 	select {
 	case res = <-done:
-	case reason := <-c.ended:
+	case reason := <-c.gone():
 		t.Fatalf("the capture ended: %s", reason)
 	case <-time.After(15 * time.Second):
 		t.Fatal("no audio came out of the capture")

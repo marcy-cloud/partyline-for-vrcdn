@@ -358,12 +358,40 @@ func explain(detail string) string {
 
 // mpvSession is a session on a libmpv core in encoding mode.
 type mpvSession struct {
-	m       *libmpv.Client
+	m *libmpv.Client
+	// app is the program being sent, when the input is one.
+	app     *appSource
 	errors  []string
 	started bool
 }
 
 func openMPV(cfg Config) (session, error) {
+	// A program's sound is captured here and handed to libmpv as raw PCM.
+	var app *appSource
+	if strings.HasPrefix(cfg.Device, AppInput) {
+		var err error
+		if app, err = openApp(cfg.Device); err != nil {
+			return nil, err
+		}
+		addr, err := app.serve()
+		if err != nil {
+			app.close()
+			return nil, err
+		}
+		cfg.Device = PCMInput + addr
+	}
+	s, err := openMPVInput(cfg)
+	if err != nil {
+		if app != nil {
+			app.close()
+		}
+		return nil, err
+	}
+	s.app = app
+	return s, nil
+}
+
+func openMPVInput(cfg Config) (*mpvSession, error) {
 	input, inputOptions, err := inputURL(cfg.Device)
 	if err != nil {
 		return nil, err
@@ -386,7 +414,7 @@ func openMPV(cfg Config) (session, error) {
 		// What VR platforms expect; mpv converts if the input differs.
 		{"audio-samplerate", "48000"},
 		{"audio-channels", "stereo"},
-		{"af", meter.Filter},
+		{"af", filters(cfg.Device, meter.Filter)},
 	}
 	for _, kv := range append(options, inputOptions...) {
 		if err := m.SetOption(kv[0], kv[1]); err != nil {
@@ -407,6 +435,13 @@ func openMPV(cfg Config) (session, error) {
 }
 
 func (s *mpvSession) wait(timeout time.Duration) sessionEvent {
+	if s.app != nil {
+		select {
+		case detail := <-s.app.ended:
+			return sessionEvent{kind: sessionEnded, detail: detail}
+		default:
+		}
+	}
 	ev := s.m.WaitEvent(timeout.Seconds())
 	switch ev.ID {
 	case libmpv.EventLogMessage:
@@ -437,4 +472,9 @@ func (s *mpvSession) position() (float64, bool) {
 func (s *mpvSession) levels() (meter.Levels, bool) { return meter.Read(s.m) }
 
 // Destroying the core closes the output properly.
-func (s *mpvSession) close() { s.m.Destroy() }
+func (s *mpvSession) close() {
+	s.m.Destroy()
+	if s.app != nil {
+		s.app.close()
+	}
+}

@@ -91,7 +91,10 @@ Things learned building it, all of which gave wrong numbers first:
   the beep did. The probe times the end of each burst, the one moment that
   is known, and works back along the stream. That is "freshest audio" in
   its output. "Oldest in a burst" is the other end of the burst.
-- **The probe's own input is bursty**: libmpv reads raw PCM 4096 frames
+- **The probe's own input was bursty** (fixed on 2026-11-14, see "Sending a
+  program's sound" in [sender.md](sender.md); the figures in this note are
+  from before, and the no-network run now reads 44 ms freshest, 70 ms
+  oldest, in bursts of 21 ms): libmpv reads raw PCM 4096 frames
   (85 ms) at a time, where a capture device gives about 20 ms. With the test
   tone and with two real input devices the sender sends a frame every 21 ms
   or so. So "oldest in a burst" is about 65 ms pessimistic in every row,

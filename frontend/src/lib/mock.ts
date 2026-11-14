@@ -56,6 +56,7 @@ export function createMock(): Api {
     devices: [
       { id: 'line-in', name: 'Line In (DJ Mixer USB)' },
       { id: 'cable', name: 'CABLE Output (VB-Audio Virtual Cable)' },
+      { id: 'app:rekordbox.exe', name: 'rekordbox', program: true },
       { id: 'test-tone', name: 'Test tone (440 Hz)' },
     ],
     ingests: [

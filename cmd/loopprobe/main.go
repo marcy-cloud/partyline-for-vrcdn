@@ -1,6 +1,7 @@
 // Command loopprobe tries out capturing one application's sound (package
 // loopback) without the GUI.
 //
+//	loopprobe -list                     # programs that have sound open
 //	loopprobe -tone 20s                 # be an application playing a very quiet tone
 //	loopprobe -exe loopprobe.exe        # capture that, by program name
 //	loopprobe -pid 1234 -for 10s        # or by process ID
@@ -10,27 +11,47 @@ import (
 	"flag"
 	"fmt"
 	"math"
+	"net"
 	"os"
-	"path/filepath"
-	"strings"
+	"sync"
 	"time"
-	"unsafe"
-
-	"golang.org/x/sys/windows"
 
 	"partyline/internal/libmpv"
 	"partyline/internal/loopback"
+	"partyline/internal/meter"
+	"partyline/internal/player"
+	"partyline/internal/sender"
 )
 
 func main() {
 	tone := flag.Duration("tone", 0, "play a 440 Hz tone at -60 dBFS for this long, and exit")
+	list := flag.Bool("list", false, "list the programs that have sound open")
 	exe := flag.String("exe", "", "capture the program with this file name")
 	pid := flag.Uint("pid", 0, "capture the process with this ID")
+	send := flag.Bool("send", false, "with -exe: send it through the real sender (FFmpeg AAC) into a listener on this PC, and report what comes out")
 	duration := flag.Duration("for", 8*time.Second, "how long to capture")
 	flag.Parse()
 
+	if *list {
+		programs, err := loopback.Programs()
+		if err != nil {
+			fail(err.Error())
+		}
+		for _, p := range programs {
+			state := "quiet"
+			if p.Playing {
+				state = "playing"
+			}
+			fmt.Printf("%-8s %-28s %s (process %d)\n", state, p.Exe, p.Name, p.PID)
+		}
+		return
+	}
 	if *tone > 0 {
 		playTone(*tone)
+		return
+	}
+	if *send {
+		throughSender(*exe, *duration)
 		return
 	}
 	target := uint32(*pid)
@@ -38,10 +59,11 @@ func main() {
 		if *exe == "" {
 			fail("give -exe or -pid")
 		}
-		var err error
-		if target, err = findProcess(*exe); err != nil {
+		p, err := loopback.Find(*exe)
+		if err != nil {
 			fail(err.Error())
 		}
+		target = p.PID
 	}
 	c, err := loopback.Open(target)
 	if err != nil {
@@ -88,6 +110,67 @@ func main() {
 	}
 }
 
+// throughSender sends a program's sound the way the app would, but to a
+// listener on this PC instead of a server, and prints the level going in
+// (the sender's meter) and the level of what the listener decodes.
+func throughSender(exe string, d time.Duration) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		fail(err.Error())
+	}
+	port := ln.Addr().(*net.TCPAddr).Port
+	ln.Close()
+	ingest := fmt.Sprintf("%s%d", sender.LocalIngest, port)
+	tap, err := player.OpenTap(ingest+"?listen=1", "")
+	if err != nil {
+		fail(err.Error())
+	}
+	defer tap.Close()
+	time.Sleep(500 * time.Millisecond)
+
+	var mu sync.Mutex
+	in := meter.Levels{Left: meter.Silence, Right: meter.Silence}
+	s := sender.New(sender.DefaultTuning(), sender.Hooks{
+		State: func(st sender.State) { fmt.Printf("sender: %s %s\n", st.Status, st.Message) },
+		Levels: func(l meter.Levels) {
+			mu.Lock()
+			in.Left, in.Right = math.Max(in.Left, l.Left), math.Max(in.Right, l.Right)
+			mu.Unlock()
+		},
+	})
+	if err := s.Start(sender.Config{Ingest: ingest, Key: "probe", Device: sender.AppInput + exe, BitrateKbps: 320}); err != nil {
+		fail(err.Error())
+	}
+	defer s.Stop()
+
+	buf := make([]byte, 1<<16)
+	begin := time.Now()
+	next := begin.Add(time.Second)
+	var peakL, peakR, bytes int
+	for time.Since(begin) < d {
+		n, err := tap.Read(buf, 10*time.Second)
+		if err != nil {
+			fmt.Println("listener:", err)
+			return
+		}
+		bytes += n
+		for i := 0; i+3 < n; i += 4 {
+			l, r := int(int16(uint16(buf[i])|uint16(buf[i+1])<<8)), int(int16(uint16(buf[i+2])|uint16(buf[i+3])<<8))
+			peakL, peakR = max(peakL, max(l, -l)), max(peakR, max(r, -r))
+		}
+		if now := time.Now(); now.After(next) {
+			db := func(v int) float64 { return 20 * math.Log10(math.Max(float64(v), 1)/32768) }
+			mu.Lock()
+			fmt.Printf("%4.1fs  into the sender L %6.1f R %6.1f dB | out of the listener L %6.1f R %6.1f dB, %4.0f ms of audio\n",
+				now.Sub(begin).Seconds(), in.Left, in.Right, db(peakL), db(peakR), float64(bytes)/4/48000*1000)
+			in = meter.Levels{Left: meter.Silence, Right: meter.Silence}
+			mu.Unlock()
+			peakL, peakR, bytes = 0, 0, 0
+			next = next.Add(time.Second)
+		}
+	}
+}
+
 // playTone makes this process an application that is playing something.
 func playTone(d time.Duration) {
 	m, err := libmpv.New()
@@ -109,34 +192,6 @@ func playTone(d time.Duration) {
 	for time.Now().Before(end) {
 		m.WaitEvent(0.2)
 	}
-}
-
-// findProcess returns the oldest process running the named program other
-// than this one: for a program with helper processes, that is their parent.
-func findProcess(name string) (uint32, error) {
-	snap, err := windows.CreateToolhelp32Snapshot(windows.TH32CS_SNAPPROCESS, 0)
-	if err != nil {
-		return 0, err
-	}
-	defer windows.CloseHandle(snap)
-	var e windows.ProcessEntry32
-	e.Size = uint32(unsafe.Sizeof(e))
-	byPID := map[uint32]windows.ProcessEntry32{}
-	for err = windows.Process32First(snap, &e); err == nil; err = windows.Process32Next(snap, &e) {
-		byPID[e.ProcessID] = e
-	}
-	self := uint32(os.Getpid())
-	for pid, e := range byPID {
-		if pid == self || !strings.EqualFold(filepath.Base(windows.UTF16ToString(e.ExeFile[:])), name) {
-			continue
-		}
-		parent, ok := byPID[e.ParentProcessID]
-		if ok && e.ParentProcessID != self && strings.EqualFold(windows.UTF16ToString(parent.ExeFile[:]), name) {
-			continue // a helper; its parent is the one to capture
-		}
-		return pid, nil
-	}
-	return 0, fmt.Errorf("no program called %s is running", name)
 }
 
 func fail(msg string) {

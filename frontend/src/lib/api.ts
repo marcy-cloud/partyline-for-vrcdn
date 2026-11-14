@@ -107,7 +107,8 @@ export interface SendInfo {
   settings: SendSettings
   targets: SendTarget[]
   state: SendState
-  devices: { id: string; name: string }[]
+  /** Input devices, and running programs whose sound can be sent. */
+  devices: { id: string; name: string; program?: boolean }[]
   ingests: { name: string; url: string }[]
   bitrates: number[]
   /** AAC encoders usable on this PC, default first; more than one only where Apple's is installed. */

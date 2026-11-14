@@ -44,7 +44,7 @@ type coreAudioSession struct {
 	wg     sync.WaitGroup
 	pumped chan struct{} // closed when pump has finished
 
-	cap  *capture
+	cap  pcmSource
 	rtmp *gortmplib.Client
 	enc  *coreaudio.Encoder
 	key  string
@@ -72,7 +72,7 @@ func openCoreAudio(cfg Config) (session, error) {
 	if s.rtmp, err = publish(cfg); err != nil {
 		return fail(err)
 	}
-	if s.cap, err = openCapture(cfg.Device); err != nil {
+	if s.cap, err = openSource(cfg.Device); err != nil {
 		return fail(err)
 	}
 
@@ -168,7 +168,7 @@ func (s *coreAudioSession) stopping() bool {
 func (s *coreAudioSession) watchCapture() {
 	defer s.wg.Done()
 	select {
-	case detail := <-s.cap.ended:
+	case detail := <-s.cap.gone():
 		s.end(detail)
 	case <-s.quit:
 	}

@@ -15,6 +15,9 @@ type Device struct {
 	// ID identifies the device to Start. It is stable across runs.
 	ID   string `json:"id"`
 	Name string `json:"name"`
+	// Program marks a running program whose sound can be sent, rather than
+	// an input device.
+	Program bool `json:"program,omitempty"`
 }
 
 // TestTone is a built-in input: a steady 440 Hz tone at about -12 dBFS, for
@@ -24,8 +27,7 @@ var TestTone = Device{ID: "test-tone", Name: "Test tone (440 Hz)"}
 // PCMInput is the prefix of a device ID that isn't a device: "pcm:" followed
 // by host:port reads raw 48 kHz stereo 16-bit PCM from a TCP server there.
 // Measurement tools use it to feed the sender audio whose timing they know;
-// it is never listed. The engine reads raw PCM 4096 frames (85 ms) at a time,
-// where a capture device delivers about 20 ms; nothing here can change that.
+// it is never listed.
 const PCMInput = "pcm:"
 
 // Supported reports whether this build can capture audio to send. Capture
@@ -36,6 +38,20 @@ func Supported() bool { return runtime.GOOS == "windows" }
 // paces it, as lavfi would otherwise run as fast as the encoder allows.
 const testToneURL = "av://lavfi:sine=frequency=440:sample_rate=48000,volume=9dB,aformat=channel_layouts=stereo,arealtime"
 
+// pcmRateFix is an audio filter that must come first for a PCMInput: it
+// relabels the audio as 48 kHz without touching the samples, and numbers
+// the timestamps afresh to match. See inputURL.
+const pcmRateFix = "lavfi=[asetrate=48000,asetpts=N/SR/TB]"
+
+// filters returns the value of mpv's "af" option for a device, given the
+// filters wanted after any the input itself needs.
+func filters(id string, then ...string) string {
+	if strings.HasPrefix(id, PCMInput) {
+		then = append([]string{pcmRateFix}, then...)
+	}
+	return strings.Join(then, ",")
+}
+
 // inputURL returns what to hand libmpv for a device, and the mpv
 // options that go with it.
 func inputURL(id string) (url string, options [][2]string, err error) {
@@ -43,9 +59,14 @@ func inputURL(id string) (url string, options [][2]string, err error) {
 		return testToneURL, nil, nil
 	}
 	if addr, ok := strings.CutPrefix(id, PCMInput); ok {
+		// libavformat reads raw PCM a tenth of a second at a time, rounded
+		// down to a power of two frames: 4096 at 48 kHz, 85 ms held back
+		// before the encoder sees any of it. Told the audio is 6 kHz it
+		// takes 512 frames, which at the real rate is 11 ms. pcmRateFix
+		// then tells the truth again.
 		return "tcp://" + addr, [][2]string{
 			{"demuxer-lavf-format", "s16le"},
-			{"demuxer-lavf-o", "sample_rate=48000,ch_layout=stereo,fflags=+nobuffer"},
+			{"demuxer-lavf-o", "sample_rate=6000,ch_layout=stereo,fflags=+nobuffer"},
 		}, nil
 	}
 	if !Supported() {
@@ -60,16 +81,17 @@ var (
 	altLine    = regexp.MustCompile(`Alternative name "(.+)"`)
 )
 
-// Devices lists the inputs that can be sent, the test tone last.
+// Devices lists what can be sent: input devices, then running programs
+// that have sound open, and the test tone last.
 func Devices() ([]Device, error) {
 	if !Supported() {
 		return []Device{TestTone}, nil
 	}
 	lines, err := dshowListing()
 	if err != nil {
-		return []Device{TestTone}, err
+		return append(programs(), TestTone), err
 	}
-	return append(parseDevices(lines), TestTone), nil
+	return append(append(parseDevices(lines), programs()...), TestTone), nil
 }
 
 // parseDevices reads ffmpeg's DirectShow device listing, which names each

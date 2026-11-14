@@ -25,9 +25,11 @@ else to install.
   they already have are left as they are, and private streams are never put
   in the file.
 - **One-click switching.** Click a stream, or press `1`–`9`, to cut to it.
-- **Send, too.** On Windows a Send tab pushes audio only from an input
-  device to VRCDN (AAC, 48 kHz, up to 320 kbps, no video), so a DJ can feed
-  VJs and dancers without OBS. Places to send to are saved in a wing on the
+- **Send, too.** On Windows a Send tab pushes audio only to VRCDN (AAC,
+  48 kHz, up to 320 kbps, no video), so a DJ can feed VJs and dancers
+  without OBS. The input is an input device, or a program that is playing
+  sound on the same PC, such as DJ software: only that program is sent, not
+  the PC's other sounds, and nothing needs installing. Places to send to are saved in a wing on the
   right, each with its stream key stored encrypted. Where iTunes is
   installed, Apple's CoreAudio AAC encoder can be chosen instead of the
   built-in one.

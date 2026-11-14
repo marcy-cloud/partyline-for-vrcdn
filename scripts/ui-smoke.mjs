@@ -3,8 +3,8 @@
 // plays the first saved stream (muted, without saving the volume), switches
 // its connection to MPEG-TS and back, stops it, starts it again with the Play
 // button, looks at the Send tab (and, if PARTYLINE_TEST_KEY holds a stream
-// key, saves a send target, goes live with the test tone and deletes the
-// target again), opens the dialog, folds a wing and switches theme,
+// key, saves a send target, goes live with the test tone, or the input
+// PARTYLINE_TEST_INPUT names, and deletes the target again), opens the dialog, folds a wing and switches theme,
 // saving a screenshot at each step. With PARTYLINE_TEST_TOUCH=1 it also taps
 // and drags the window by injected touch. With PARTYLINE_TEST_DIALOGS=1 it also
 // exports the stream list and imports it again through the system's file
@@ -170,7 +170,15 @@ try {
       await dialogButton('/^Add$/'); await sleep(900)
       console.log('send targets:', targetsBefore, '->', await js(`document.querySelectorAll('.targets li').length`), '| chosen:', await js(`document.querySelector('.targets li.active .label')?.innerText`))
       const inputWas = await js(`document.querySelector('.controls .control select').value`)
-      await setValue('.controls .control select', 'test-tone', 'change')
+      // The test tone, unless PARTYLINE_TEST_INPUT names an input or a program
+      // that is playing sound (part of its name in the Input list).
+      const wanted = process.env.PARTYLINE_TEST_INPUT
+      const input = wanted
+        ? await js(`[...document.querySelector('.controls .control select').options].find((o) => o.text.toLowerCase().includes(${JSON.stringify(wanted.toLowerCase())}))?.value ?? ''`)
+        : 'test-tone'
+      if (!input) throw new Error(`no input called "${wanted}" in the list: ` + await js(`[...document.querySelector('.controls .control select').options].map((o) => o.text).join(' | ')`))
+      await setValue('.controls .control select', input, 'change')
+      console.log('input:', await js(`(() => { const s = document.querySelector('.controls .control select'); const o = s.selectedOptions[0]; return o.text + ' [' + (o.parentElement.label ?? '') + ']' })()`))
       await sleep(300)
       // Go on air with each encoder this PC has (CoreAudio only shows where
       // Apple's encoder is installed).

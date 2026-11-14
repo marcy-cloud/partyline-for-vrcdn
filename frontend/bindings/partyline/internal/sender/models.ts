@@ -10,6 +10,12 @@ export interface Device {
      */
     "id": string;
     "name": string;
+
+    /**
+     * Program marks a running program whose sound can be sent, rather than
+     * an input device.
+     */
+    "program"?: boolean;
 }
 
 /**
