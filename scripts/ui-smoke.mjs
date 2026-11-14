@@ -169,7 +169,7 @@ try {
       await setValue('dialog[open] input[type=password]', testKey, 'input')
       await setValue('dialog[open] .field:nth-of-type(2) input', 'Smoke test target', 'input')
       await dialogButton('/^Add$/'); await sleep(900)
-      console.log('send targets:', targetsBefore, '->', await js(`document.querySelectorAll('.targets li').length`), '| chosen:', await js(`document.querySelector('.targets li.active .label')?.innerText`))
+      console.log('send targets:', targetsBefore, '->', await js(`document.querySelectorAll('.targets li').length`), '| chosen:', await js(`document.querySelector('.targets li.chosen .label')?.innerText`))
       const inputWas = await js(`document.querySelector('.controls .control select').value`)
       await setValue('.controls .control select', 'test-tone', 'change')
       await sleep(300)

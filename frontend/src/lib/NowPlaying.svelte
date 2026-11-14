@@ -126,14 +126,14 @@
       {#if send}
         <span class="tabs" role="tablist">
           <button class="tab pixel" role="tab" aria-selected={view === 'listen'} onclick={() => onview('listen')}>
-            now-playing.exe
+            now-playing
           </button>
           <button class="tab pixel" role="tab" aria-selected={view === 'send'} onclick={() => onview('send')}>
-            send.exe{#if onAir}<span class="on-air" aria-label="on air"></span>{/if}
+            send{#if onAir}<span class="on-air" aria-label="on air"></span>{/if}
           </button>
         </span>
       {:else}
-        <span class="pixel" aria-hidden="true">now-playing.exe</span>
+        <span class="pixel" aria-hidden="true">now-playing</span>
       {/if}
       <span class="chrome">
         <WindowControls {maximised} />

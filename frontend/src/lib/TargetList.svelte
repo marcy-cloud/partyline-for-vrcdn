@@ -38,7 +38,10 @@
     <ul>
       {#each targets as t (t.id)}
         {@const chosen = t.id === selectedId}
-        <li class:active={chosen}>
+        <!-- Chosen is where Go live would send. The pink bar that marks a
+             playing stream in the other wing is kept for a target that is
+             being sent to right now. -->
+        <li class:chosen class:active={chosen && onAir}>
           <button
             class="row"
             onclick={() => onselect(t.id)}
@@ -65,6 +68,10 @@
 </aside>
 
 <style>
+  .chosen :global(.row) {
+    background: var(--gt-surface-raised);
+  }
+
   .deco {
     color: var(--gt-pink-text);
   }
