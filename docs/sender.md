@@ -54,9 +54,9 @@ pre-feed. Context: [use-case.md](use-case.md), [vrcdn.md](vrcdn.md).
 
 ## Not done or not tested
 
-- **Capturing what the PC is playing ("loopback").** Only input devices can
-  be sent. Loopback needs our own WASAPI capture code. Until then a virtual
-  audio cable does the job.
+- **Sending what another program is playing** (a DJ program on the same
+  PC). Not in the app yet, but the hard part is proven: see "Capturing one
+  program's sound" below. Until then a virtual audio cable does the job.
 - **A level meter before going live.** The meter only moves while on air.
 - **Linux and macOS.** Capture uses DirectShow, so the Send tab is hidden
   elsewhere.
@@ -86,3 +86,43 @@ bin\probe.exe -volume 0 -for 10s <private stream name>
 A private stream's name is its key, so treat both as secret. The smoke test
 goes on air with the test tone when `PARTYLINE_TEST_KEY` is set, and forgets
 the key afterwards; see [testing.md](testing.md).
+
+## Capturing one program's sound
+
+Spike, 2026-11-14: `internal/loopback` and `cmd/loopprobe`. Not wired into
+the sender or the UI.
+
+It uses WASAPI process loopback, the Windows feature behind OBS's
+"Application Audio Capture" (Windows 10 version 2004 and later). Given a
+process ID, Windows hands over what that process and the processes it
+started are playing. Nothing is installed and the PC's sound settings are
+not touched. It is plain COM called from Go; no C, no new dependency.
+
+Tested on Windows 10 22H2 with a second process playing a 440 Hz tone at
+-60 dBFS:
+
+- The tone is captured at -61.7 dBFS, as 48 kHz stereo 16-bit, in 10 ms
+  pieces arriving every 10 ms: 1000 ms of audio per second, no gaps.
+- **Only that program is heard.** Capturing `explorer.exe` while the tone
+  played from the other process gave silence (-90 dBFS, the last bit).
+- **A silent program still gives a steady stream** of near-silence, so the
+  encoder is never starved. (On this PC. Microsoft doesn't promise it.)
+- **A process ID that doesn't exist gives silence too, with no error.** The
+  app will have to check the program is running, and notice when it closes.
+
+Not known yet:
+
+- Whether the program's volume in the Windows mixer, or muting the PC's
+  speakers, changes what is captured. It matters: a DJ may want the laptop
+  silent while sending.
+- Real DJ programs. Some use exclusive mode or ASIO to reach the sound
+  card, and Windows cannot capture those this way at all.
+- Delay. Not measured; the pieces are 10 ms.
+- How to choose the program in the UI. The natural list is "programs
+  playing sound right now" (Windows audio sessions), which is more COM.
+- How to get it into the FFmpeg AAC encoder in small pieces. libmpv reads
+  raw PCM 85 ms at a time (see [latency.md](latency.md)); the CoreAudio
+  path can take it directly.
+
+Also not done: "everything the PC plays" (loopback of an output device),
+which is the same code with a different way of opening it.
