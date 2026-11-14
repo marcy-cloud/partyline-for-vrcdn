@@ -76,13 +76,21 @@ func main() {
 		Height:    660,
 		MinWidth:  560,
 		MinHeight: 520,
-		// No Windows title bar: the app draws its own, with its own minimise,
-		// maximise and close buttons, and a rounded border around the lot.
-		// The window itself is see-through so the corners outside that
-		// border show whatever is behind the app.
+		// No title bar from Windows or macOS: the app draws its own, with
+		// its own minimise, maximise and close buttons, and a rounded border
+		// around the lot. The window itself is see-through so the corners
+		// outside that border show whatever is behind the app.
 		Frameless:        true,
 		BackgroundType:   application.BackgroundTypeTransparent,
 		BackgroundColour: application.NewRGBA(0, 0, 0, 0),
+		Mac: application.MacWindow{
+			// macOS keeps its own frame around a frameless window unless
+			// told otherwise: its rounded corners, outline and soft shadow,
+			// which would be drawn around the see-through parts too. This
+			// asks for a bare window, as on Windows.
+			CornerType:    application.MacWindowCornerTypeSquare,
+			DisableShadow: true,
+		},
 		Windows: application.WindowsWindow{
 			// Lets the CSS "app-region: drag" areas act as a real title
 			// bar, so Windows itself moves the window. Without it only a

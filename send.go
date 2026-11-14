@@ -133,7 +133,8 @@ func (a *App) SaveSendSettings(in SendSettings) (SendSettings, error) {
 }
 
 // SaveSendTarget creates (empty ID) or updates a send target. The key is
-// protected so that only this Windows account can read it back.
+// protected so that only this user account on this computer can read it
+// back.
 func (a *App) SaveSendTarget(in SendTarget) (SendTarget, error) {
 	t := store.SendTarget{ID: in.ID, Label: in.Label, Ingest: knownIngest(in.Ingest)}
 	if key := strings.TrimSpace(in.Key); key != "" {

@@ -69,7 +69,7 @@
         autofocus
         required={isNew}
       />
-      <small>Stored encrypted for this Windows account and never shown again.</small>
+      <small>Stored encrypted for your account on this computer and never shown again.</small>
     </label>
 
     <label class="field">

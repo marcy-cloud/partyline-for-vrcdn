@@ -285,7 +285,7 @@
     else call((a) => a.setVolume(volume))
   }
 
-  // The window has no Windows title bar, so the app tracks this itself.
+  // The window has no title bar from the OS, so the app tracks this itself.
   let maximised = $state(false)
   async function syncMaximised() {
     if (inWails()) maximised = await Window.IsMaximised()

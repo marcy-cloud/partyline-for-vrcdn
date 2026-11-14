@@ -27,12 +27,12 @@ else to install.
 - **One-click switching.** Click a stream, or press `1`–`9`, to cut to it.
   Drag a stream by the handle at its left to reorder the list (the arrow
   keys on a handle do the same).
-- **Send, too.** On Windows a Send tab pushes audio only from an input
-  device to VRCDN (AAC, 48 kHz, up to 320 kbps, no video), so a DJ can feed
-  VJs and dancers without OBS. Places to send to are saved in a wing on the
-  right, each with its stream key stored encrypted. Where iTunes is
-  installed, Apple's CoreAudio AAC encoder can be chosen instead of the
-  built-in one.
+- **Send, too.** On Windows and macOS a Send tab pushes audio only from an
+  input device to VRCDN (AAC, 48 kHz, up to 320 kbps, no video), so a DJ can
+  feed VJs and dancers without OBS. Places to send to are saved in a wing on
+  the right, each with its stream key stored encrypted. Apple's CoreAudio
+  AAC encoder can be chosen instead of the built-in one: always on a Mac,
+  and on Windows where iTunes is installed.
 - **Auto-reconnect.** Keeps retrying while a stream is offline and reconnects
   if it drops or stalls, so audio starts by itself when the performer goes
   live.
@@ -71,6 +71,33 @@ ships with Windows 10/11.
 
 To use a different libmpv build, put its `libmpv-2.dll` next to the exe; it
 takes priority over the built-in one.
+
+### macOS
+
+libmpv comes from [Homebrew](https://brew.sh):
+
+```
+brew install mpv
+```
+
+Then open `partyline.app`. It needs macOS 13 or later. A libmpv from
+somewhere else is used if it is at `partyline.app/Contents/Frameworks/libmpv.2.dylib`
+or named by `LIBMPV_PATH`.
+
+Two things macOS asks about, once each:
+
+- **The microphone**, the first time you go on air from the Send tab. If
+  that was refused, allow it in System Settings, under Privacy & Security,
+  Microphone.
+- **The keychain**, the first time a stream key is saved or used. Stream
+  keys are encrypted with a key kept in your login keychain (the item is
+  called "PartyLine for VRCDN"). A build that is not signed by the same
+  developer as the one that made the item is asked about again; Always
+  Allow settles it.
+
+To send what the Mac itself is playing, rather than a microphone or an
+interface, install a loopback device such as BlackHole and choose it as the
+input.
 
 ### Linux
 
@@ -117,6 +144,7 @@ wails3 build EXTRA_TAGS=bundled_libmpv      # bin/partyline.exe, about 59 MB
 | Target | Command | Notes |
 | --- | --- | --- |
 | Windows, libmpv not built in | `wails3 build` | A small exe that needs `libmpv-2.dll` next to it. No C compiler needed. |
+| macOS | `wails3 package` | `bin/partyline.app`, signed ad hoc. Needs the Xcode command line tools. `wails3 build` makes only the bare binary. libmpv is not put inside the app. |
 | Linux | `wails3 build` | Needs `gcc`, `libgtk-4-dev` and `libwebkitgtk-6.0-dev`. Not yet tried on Linux. |
 
 Binaries land in `bin`. Without `EXTRA_TAGS=bundled_libmpv`, libmpv is only
@@ -183,8 +211,10 @@ internal/store         saved streams and settings (JSON in the user config dir)
 internal/player        Controller: reconnect, stall detection, catch-up policy
                        MPVEngine: the libmpv-backed implementation of Engine
 internal/sender        Sends audio only to an RTMP ingest, in a helper process
-internal/coreaudio     calls Apple's AAC encoder, where iTunes has installed it
-internal/secret        keeps the stream key encrypted (Windows DPAPI)
+internal/coreaudio     calls Apple's AAC encoder: AudioToolbox on a Mac, and
+                       on Windows where iTunes has installed it
+internal/secret        keeps the stream key encrypted (Windows DPAPI; on a
+                       Mac, a key in the login keychain)
 internal/meter         level meter shared by the player and the sender
 internal/libmpv        cgo-free binding to the libmpv client API (purego),
                        and unpacking of the built-in copy
@@ -222,6 +252,7 @@ What the player cannot remove is the delay before the audio reaches it
 ### Settings file
 
 `%AppData%\partyline\config.json` on Windows,
+`~/Library/Application Support/partyline/config.json` on macOS,
 `~/.config/partyline/config.json` on Linux.
 
 ## Licence

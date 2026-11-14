@@ -145,7 +145,7 @@
 
 
   {#if info.encoders.length > 1}
-    <label class="control" title="CoreAudio is Apple's encoder, the one OBS offers when iTunes is installed">
+    <label class="control" title="CoreAudio is Apple's encoder: part of macOS, and the one OBS offers on Windows when iTunes is installed">
       <span>Encoder</span>
       <select
         class="input wide"

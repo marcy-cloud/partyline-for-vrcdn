@@ -1,5 +1,6 @@
 <script lang="ts">
-  // Minimise, maximise and close, since the window has no Windows title bar.
+  // Minimise, maximise and close, since the window has no title bar from
+  // Windows or macOS.
   // Rendered nowhere outside the app (a plain browser has its own).
   import { Window } from '@wailsio/runtime'
   import { inWails } from './api'

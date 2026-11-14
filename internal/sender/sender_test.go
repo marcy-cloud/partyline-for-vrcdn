@@ -288,12 +288,33 @@ func TestParseDevices(t *testing.T) {
 	}
 }
 
+func TestParseAVFoundationDevices(t *testing.T) {
+	lines := []string{
+		"AVFoundation indev: AVFoundation video devices:\n",
+		"AVFoundation indev: [0] FaceTime HD Camera\n",
+		"AVFoundation indev: [1] Capture screen 0\n",
+		"AVFoundation indev: AVFoundation audio devices:\n",
+		"AVFoundation indev: [0] BlackHole 2ch\n",
+		"AVFoundation indev: [1] Scarlett 2i2 [USB] (2)\n",
+		"AVFoundation indev: something else entirely\n",
+	}
+	want := []Device{
+		{ID: "BlackHole 2ch", Name: "BlackHole 2ch"},
+		{ID: "Scarlett 2i2 [USB] (2)", Name: "Scarlett 2i2 [USB] (2)"},
+	}
+	if got := parseAVFoundationDevices(lines); !reflect.DeepEqual(got, want) {
+		t.Errorf("got  %+v\nwant %+v", got, want)
+	}
+}
+
 // Messages as libmpv and ffmpeg actually word them.
 func TestExplain(t *testing.T) {
 	cases := map[string]string{
 		`rtmp: Server error: [auth failed]: code:403 msg:"Invalid stream key or user disabled" · could not open 'rtmp://x/live/<key>'`:                                                               "refused the stream key",
 		`tcp: Failed to resolve hostname nope.invalid · rtmp: Cannot open connection tcp://nope.invalid:1935 · could not open 'rtmp://nope.invalid/live/<key>'`:                                      "Can't reach the server",
 		`dshow: Could not find audio only device with name [@device_cm_{0}] among source devices of type audio. · avformat_open_input() failed`:                                                      "isn't available",
+		`AVFoundation indev: Audio device not found · avformat_open_input() failed`:                                                                                                                  "isn't available",
+		`avfoundation: Failed to create AV capture input device: Cannot use BlackHole 2ch · avformat_open_input() failed`:                                                                            "hasn't allowed",
 		`bad result: &{3 16777216 onStatus 5 [<nil> [{clientid 0} {code NetStream.Publish.BadAuth} {description [auth failed]: code:403 msg:"Invalid stream key or user disabled"} {level error}]]}`: "refused the stream key",
 		`bad result: &{3 16777216 onStatus 5 [<nil> [{code NetStream.Publish.BadAuth} {description [auth failed]: code:403 msg:"Stream is locked"} {level error}]]}`:                                 "already in use",
 		`rtmp: Server error: [auth failed]: code:403 msg:"Stream is locked" · could not open 'rtmp://x/live/<key>'`:                                                                                  "already in use",

@@ -1,34 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-    <dict>
-        <key>CFBundlePackageType</key>
-            <string>APPL</string>
-        <key>CFBundleName</key>
-            <string>PartyLine for VRCDN</string>
-        <key>CFBundleExecutable</key>
-            <string>partyline.exe</string>
-        <key>CFBundleIdentifier</key>
-            <string>app.partyline</string>
-        <key>CFBundleVersion</key>
-            <string>0.1.0</string>
-        <key>CFBundleGetInfoString</key>
-            <string>Low-latency audio player for VRCDN streams</string>
-        <key>CFBundleShortVersionString</key>
-            <string>0.1.0</string>
-        <key>CFBundleIconFile</key>
-            <string>icons</string>
-        <key>CFBundleIconName</key>
-            <string>appicon</string>
-        <key>LSMinimumSystemVersion</key>
-            <string>12.0.0</string>
-        <key>NSHighResolutionCapable</key>
-            <string>true</string>
-        <key>NSHumanReadableCopyright</key>
-            <string>GPL-3.0-or-later</string>
-        <key>NSAppTransportSecurity</key>
-        <dict>
-            <key>NSAllowsLocalNetworking</key>
-            <true/>
-        </dict>
-    </dict>
+	<dict>
+		<key>CFBundleExecutable</key>
+		<string>partyline</string>
+		<key>CFBundleGetInfoString</key>
+		<string>Low-latency audio player for VRCDN streams</string>
+		<key>CFBundleIconFile</key>
+		<string>icons</string>
+		<key>CFBundleIconName</key>
+		<string>appicon</string>
+		<key>CFBundleIdentifier</key>
+		<string>app.partyline</string>
+		<key>CFBundleName</key>
+		<string>PartyLine for VRCDN</string>
+		<key>CFBundlePackageType</key>
+		<string>APPL</string>
+		<key>CFBundleShortVersionString</key>
+		<string>0.7.1</string>
+		<key>CFBundleVersion</key>
+		<string>0.7.1</string>
+		<key>LSMinimumSystemVersion</key>
+		<string>13.0.0</string>
+		<key>NSAppTransportSecurity</key>
+		<dict>
+			<key>NSAllowsLocalNetworking</key>
+			<true/>
+		</dict>
+		<key>NSHighResolutionCapable</key>
+		<string>true</string>
+		<key>NSHumanReadableCopyright</key>
+		<string>GPL-3.0-or-later</string>
+		<key>NSMicrophoneUsageDescription</key>
+		<string>PartyLine sends the audio of the input you choose on the Send tab to VRCDN.</string>
+	</dict>
 </plist>

@@ -38,8 +38,8 @@ func openCapture(device string) (*capture, error) {
 		pipe.Close()
 		return nil, err
 	}
+	bare(m)
 	options := [][2]string{
-		{"config", "no"}, {"terminal", "no"}, {"ytdl", "no"}, {"load-scripts", "no"},
 		{"vid", "no"}, {"sid", "no"}, {"audio-display", "no"}, {"vo", "null"},
 		// Nothing may sit between the input and whoever reads the pipe.
 		{"cache", "no"},

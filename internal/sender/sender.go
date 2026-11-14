@@ -417,10 +417,22 @@ func explain(detail string) string {
 	case has("failed to resolve", "cannot open connection", "connection refused", "network is unreachable", "timed out",
 		"no such host", "dial tcp", "deadline exceeded"):
 		return "Can't reach the server"
-	case has("could not find audio only device"):
+	case has("could not find audio only device", "audio device not found"):
 		return "The input device isn't available. Is it plugged in?"
+	case has("failed to create av capture input device"):
+		// What AVFoundation says when macOS has not let the app record.
+		return "macOS hasn't allowed PartyLine to use this input. Allow it in System Settings, under Privacy & Security, Microphone, then try again."
 	}
 	return detail
+}
+
+// bare turns off the parts of mpv a sender has no use for. A libmpv built
+// without one of them doesn't know its option (no Lua, no "ytdl"), and
+// that is as good as off.
+func bare(m *libmpv.Client) {
+	for _, kv := range [][2]string{{"config", "no"}, {"terminal", "no"}, {"ytdl", "no"}, {"load-scripts", "no"}} {
+		_ = m.SetOption(kv[0], kv[1])
+	}
 }
 
 // mpvSession is a session on a libmpv core in encoding mode.
@@ -439,8 +451,8 @@ func openMPV(cfg Config) (session, error) {
 	if err != nil {
 		return nil, err
 	}
+	bare(m)
 	options := [][2]string{
-		{"config", "no"}, {"terminal", "no"}, {"ytdl", "no"}, {"load-scripts", "no"},
 		{"vid", "no"}, {"sid", "no"}, {"audio-display", "no"},
 		// Nothing may sit between the input and the encoder.
 		{"cache", "no"},

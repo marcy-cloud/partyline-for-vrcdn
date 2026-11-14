@@ -29,8 +29,20 @@ var TestTone = Device{ID: "test-tone", Name: "Test tone (440 Hz)"}
 const PCMInput = "pcm:"
 
 // Supported reports whether this build can capture audio to send. Capture
-// uses DirectShow, so for now that means Windows.
-func Supported() bool { return runtime.GOOS == "windows" }
+// uses DirectShow on Windows and AVFoundation on macOS.
+func Supported() bool { return captureFormat() != "" }
+
+// captureFormat is the name of ffmpeg's input device for this system, or ""
+// where there is none this program knows how to use.
+func captureFormat() string {
+	switch runtime.GOOS {
+	case "windows":
+		return "dshow"
+	case "darwin":
+		return "avfoundation"
+	}
+	return ""
+}
 
 // lavfi's sine is -18 dB and loses 3 dB going from mono to stereo; arealtime
 // paces it, as lavfi would otherwise run as fast as the encoder allows.
@@ -48,16 +60,24 @@ func inputURL(id string) (url string, options [][2]string, err error) {
 			{"demuxer-lavf-o", "sample_rate=48000,ch_layout=stereo,fflags=+nobuffer"},
 		}, nil
 	}
-	if !Supported() {
-		return "", nil, errors.New("sending from an input device is only available on Windows for now")
+	switch captureFormat() {
+	case "dshow":
+		// DirectShow buffers half a second of audio unless told otherwise.
+		return "av://dshow:audio=" + id, [][2]string{{"demuxer-lavf-o", "audio_buffer_size=20,fflags=+nobuffer"}}, nil
+	case "avfoundation":
+		// "video:audio", with no video. AVFoundation hands audio over as
+		// it arrives and has no buffer to shorten.
+		return "av://avfoundation:none:" + id, [][2]string{{"demuxer-lavf-o", "fflags=+nobuffer"}}, nil
 	}
-	// DirectShow buffers half a second of audio unless told otherwise.
-	return "av://dshow:audio=" + id, [][2]string{{"demuxer-lavf-o", "audio_buffer_size=20,fflags=+nobuffer"}}, nil
+	return "", nil, errors.New("sending from an input device is only available on Windows and macOS for now")
 }
 
 var (
 	deviceLine = regexp.MustCompile(`"(.+)" \(audio\)`)
 	altLine    = regexp.MustCompile(`Alternative name "(.+)"`)
+	// AVFoundation's listing: a heading for each kind, then "[0] Name".
+	avfHeading = regexp.MustCompile(`AVFoundation (\w+) devices:`)
+	avfLine    = regexp.MustCompile(`\[\d+\] (.+)$`)
 )
 
 // Devices lists the inputs that can be sent, the test tone last.
@@ -65,9 +85,13 @@ func Devices() ([]Device, error) {
 	if !Supported() {
 		return []Device{TestTone}, nil
 	}
-	lines, err := dshowListing()
+	format := captureFormat()
+	lines, err := deviceListing(format)
 	if err != nil {
 		return []Device{TestTone}, err
+	}
+	if format == "avfoundation" {
+		return append(parseAVFoundationDevices(lines), TestTone), nil
 	}
 	return append(parseDevices(lines), TestTone), nil
 }
@@ -95,16 +119,44 @@ func parseDevices(lines []string) []Device {
 	return out
 }
 
-// dshowListing asks ffmpeg, through a throwaway libmpv core, to list
-// DirectShow devices. The list only comes out as log lines.
-func dshowListing() ([]string, error) {
+// parseAVFoundationDevices reads ffmpeg's AVFoundation device listing:
+//
+//	AVFoundation video devices:
+//	[0] FaceTime HD Camera
+//	AVFoundation audio devices:
+//	[0] MacBook Pro Microphone
+//
+// A device is opened by name, so the name is the ID as well. (The number is
+// only its place in the list, which changes as devices come and go.)
+func parseAVFoundationDevices(lines []string) []Device {
+	var out []Device
+	audio := false
+	for _, line := range lines {
+		if m := avfHeading.FindStringSubmatch(line); m != nil {
+			audio = m[1] == "audio"
+			continue
+		}
+		if !audio {
+			continue
+		}
+		if m := avfLine.FindStringSubmatch(strings.TrimSpace(line)); m != nil {
+			out = append(out, Device{ID: m[1], Name: m[1]})
+		}
+	}
+	return out
+}
+
+// deviceListing asks ffmpeg, through a throwaway libmpv core, to list the
+// devices of one of its input formats (dshow, avfoundation). The list only
+// comes out as log lines.
+func deviceListing(format string) ([]string, error) {
 	m, err := libmpv.New()
 	if err != nil {
 		return nil, err
 	}
 	defer m.Destroy()
+	bare(m)
 	for _, kv := range [][2]string{
-		{"config", "no"}, {"terminal", "no"}, {"ytdl", "no"}, {"load-scripts", "no"},
 		{"vid", "no"}, {"ao", "null"}, {"idle", "yes"},
 		{"demuxer-lavf-o", "list_devices=true"},
 	} {
@@ -115,7 +167,7 @@ func dshowListing() ([]string, error) {
 	}
 	_ = m.RequestLogMessages("v")
 	// The "open" always fails; listing is a side effect of trying.
-	if err := m.Command("loadfile", "av://dshow:dummy"); err != nil {
+	if err := m.Command("loadfile", "av://"+format+":dummy"); err != nil {
 		return nil, err
 	}
 
@@ -125,7 +177,9 @@ func dshowListing() ([]string, error) {
 		ev := m.WaitEvent(0.2)
 		switch ev.ID {
 		case libmpv.EventLogMessage:
-			if strings.Contains(ev.LogText, "dshow") {
+			// ffmpeg names the source of each line: "dshow: ..." or
+			// "AVFoundation indev: ...".
+			if strings.Contains(strings.ToLower(ev.LogText), format) {
 				lines = append(lines, ev.LogText)
 			}
 		case libmpv.EventEndFile, libmpv.EventShutdown:

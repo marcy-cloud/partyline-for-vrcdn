@@ -18,7 +18,8 @@ func libNames() []string {
 }
 
 // explicitCandidates lists the places a user can put a libmpv library to
-// have it used: LIBMPV_PATH and next to the program.
+// have it used: LIBMPV_PATH, next to the program, and in the app bundle on
+// macOS.
 func explicitCandidates() []string {
 	var out []string
 	if p := os.Getenv("LIBMPV_PATH"); p != "" {
@@ -28,6 +29,11 @@ func explicitCandidates() []string {
 		dir := filepath.Dir(exe)
 		for _, n := range libNames() {
 			out = append(out, filepath.Join(dir, n), filepath.Join(dir, "lib", n))
+			if runtime.GOOS == "darwin" {
+				// Inside an app bundle, where libraries shipped with
+				// the app go: Contents/Frameworks, next to Contents/MacOS.
+				out = append(out, filepath.Join(dir, "..", "Frameworks", n))
+			}
 		}
 	}
 	return out

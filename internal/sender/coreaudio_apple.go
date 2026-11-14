@@ -1,4 +1,4 @@
-//go:build windows
+//go:build windows || darwin
 
 package sender
 
@@ -23,7 +23,8 @@ import (
 	"partyline/internal/meter"
 )
 
-// coreAudioInstalled reports whether Apple's encoder is on this PC.
+// coreAudioInstalled reports whether Apple's encoder is on this computer:
+// always on a Mac, and with iTunes on Windows.
 func coreAudioInstalled() bool { return coreaudio.Find() != "" }
 
 const (

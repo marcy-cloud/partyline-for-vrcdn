@@ -1,4 +1,4 @@
-//go:build windows
+//go:build windows || darwin
 
 // Command coreaudioprobe is an experiment on the coreaudio branch: can we
 // call Apple's AAC encoder ourselves? It encodes a few seconds of test tone

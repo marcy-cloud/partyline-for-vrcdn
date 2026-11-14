@@ -87,7 +87,8 @@ export function SaveSendSettings($in: $models.SendSettings): $CancellablePromise
 
 /**
  * SaveSendTarget creates (empty ID) or updates a send target. The key is
- * protected so that only this Windows account can read it back.
+ * protected so that only this user account on this computer can read it
+ * back.
  */
 export function SaveSendTarget($in: $models.SendTarget): $CancellablePromise<$models.SendTarget> {
     return $Call.ByID(4067823023, $in);
