@@ -2,6 +2,7 @@
   // The DJ's side: send audio only to VRCDN. Rendered inside the main
   // panel's body, which styles the shared pieces (badge, controls, meter).
   import Icon from './Icon.svelte'
+  import LevelMeter from './LevelMeter.svelte'
   import type { Levels, SendInfo, SendSettings, SendState, SendStatus } from './api'
 
   interface Props {
@@ -53,7 +54,6 @@
   })
 
   // The meter covers the top 60 dB, as on the player.
-  const meterFill = (db: number) => `${Math.min(Math.max((db + 60) / 60, 0), 1) * 100}%`
 
 </script>
 
@@ -118,14 +118,7 @@
 
   <div class="control" title="Level of the audio going out">
     <span>Level</span>
-    <div
-      class="level"
-      role="img"
-      aria-label="Outgoing level: left {Math.round(levels.left)} dB, right {Math.round(levels.right)} dB"
-    >
-      <div class="bar" style="--fill: {meterFill(levels.left)}"></div>
-      <div class="bar" style="--fill: {meterFill(levels.right)}"></div>
-    </div>
+    <LevelMeter {levels} what="Outgoing" />
     <span class="lr pixel" aria-hidden="true">L<br />R</span>
   </div>
 

@@ -46,7 +46,10 @@ else to install.
 - **Output device and volume**, remembered between runs.
 - **Stereo level meter.** Shows the level of the incoming audio per channel,
   measured before the volume control, so you can see a stream has signal
-  even with the player turned down.
+  even with the player turned down. It is marked to VRCDN's guidance (peaks
+  near 0 dB, about -5 as the target): aqua below -8 dB, green from -8 to
+  -2, pink for the last 2 dB, and a dot that lights when a peak clips. The
+  Send tab has the same meter for what is going out.
 - **Finds a way through.** By default a stream is tried over RTSP on UDP,
   which has the lowest latency, then RTSP on TCP, then MPEG-TS over HTTPS,
   moving on when nothing arrives within 4 seconds. UDP gets a second try

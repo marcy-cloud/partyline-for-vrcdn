@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'
   import Icon from './Icon.svelte'
+  import LevelMeter from './LevelMeter.svelte'
   import Sparkline from './Sparkline.svelte'
   import ThemeToggle from './ThemeToggle.svelte'
   import WindowControls from './WindowControls.svelte'
@@ -98,9 +99,6 @@
     return parts.join(' · ')
   })
 
-  // The meter covers the top 60 dB: -60 dBFS and below is empty, 0 is full.
-  const METER_RANGE = 60
-  const meterFill = (db: number) => `${Math.min(Math.max((db + METER_RANGE) / METER_RANGE, 0), 1) * 100}%`
 
   let overThreshold = $derived(player.bufferMs > settings.catchUpAboveMs)
   let busy = $derived(player.status !== 'idle' && player.status !== 'failed')
@@ -268,14 +266,7 @@
 
         <div class="control" title="Level of the incoming audio, before the volume control">
           <span>Level</span>
-          <div
-            class="level"
-            role="img"
-            aria-label="Incoming level: left {Math.round(levels.left)} dB, right {Math.round(levels.right)} dB"
-          >
-            <div class="bar" style="--fill: {meterFill(levels.left)}"></div>
-            <div class="bar" style="--fill: {meterFill(levels.right)}"></div>
-          </div>
+          <LevelMeter {levels} what="Incoming" />
           <span class="lr pixel" aria-hidden="true">L<br />R</span>
         </div>
 
@@ -694,22 +685,6 @@
     border: var(--gt-border-width) solid var(--gt-lavender);
     border-radius: 50%;
     background: var(--gt-white);
-  }
-
-  /* Incoming level, left over right. The colours sit at fixed places on the
-     scale (mint, then butter for the top 12 dB, pink for the top 3) and
-     --fill uncovers them from the left. */
-  .body :global(.level) {
-    display: grid;
-    gap: 3px;
-  }
-
-  .body :global(.bar) {
-    height: 6px;
-    border-radius: var(--gt-radius-pill);
-    background:
-      linear-gradient(to right, transparent var(--fill), var(--gt-surface-raised) var(--fill)),
-      linear-gradient(to right, var(--gt-mint) 80%, var(--gt-butter) 80% 95%, var(--gt-pink) 95%);
   }
 
   .body :global(.control) > :global(.lr) {
