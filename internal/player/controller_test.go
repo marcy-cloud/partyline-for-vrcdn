@@ -474,8 +474,53 @@ func TestBacklogAfterADropoutIsSkippedAtOnce(t *testing.T) {
 	f.tick(0.4, 1.2)
 	waitFor(t, "skip", func() bool { return f.dropCount() == 1 })
 	// More of it arriving is skipped too...
-	f.tick(0.4, 1.3)
+	f.tick(0.7, 1.3)
 	waitFor(t, "second skip", func() bool { return f.dropCount() == 2 })
+}
+
+// A skip doesn't always land under the threshold: the engine fills up again
+// to where the stream's packets fall, which can be just over it. Skipping
+// that again and again is a glitch every tick and gets nowhere; it is
+// skipped once and then played off.
+func TestALittleLeftAfterASkipIsNotSkippedForEver(t *testing.T) {
+	tuning := testTuning()
+	tuning.CatchUpSustain = time.Hour
+	tuning.RecoverWindow = time.Hour
+	c, f := start(t, defaultOpts, tuning)
+	c.Play(djA)
+	f.started()
+	waitStatus(t, c, Playing)
+	f.tick(0.02, 1)
+	waitFor(t, "reading", func() bool { return c.State().BufferMs == 20 })
+
+	f.tick(3, 2) // seconds behind: skipped
+	waitFor(t, "skip", func() bool { return f.dropCount() == 1 })
+	f.tick(0.256, 3) // just over, once: skipped
+	waitFor(t, "trim", func() bool { return f.dropCount() == 2 })
+	if c.State().CatchingUp {
+		t.Error("playing fast after the first small excess")
+	}
+	for i := 0; i < 6; i++ { // and there it is again, and stays
+		f.tick(0.256, 4+float64(i))
+	}
+	waitFor(t, "catch-up", func() bool { return c.State().CatchingUp })
+	f.tick(0.256, 20)
+	waitFor(t, "reading", func() bool { return c.State().BufferMs == 256 })
+	if f.dropCount() != 2 {
+		t.Errorf("drops = %d, want 2: the same small excess was skipped again", f.dropCount())
+	}
+	f.tick(0.08, 21)
+	waitFor(t, "normal speed", func() bool { return !c.State().CatchingUp })
+	if f.lastSpeed() != 1 {
+		t.Errorf("speed = %v after catching up", f.lastSpeed())
+	}
+
+	// A real backlog showing up meanwhile is still skipped, and after it a
+	// small excess gets its one skip again.
+	f.tick(0.9, 22)
+	waitFor(t, "skip of more backlog", func() bool { return f.dropCount() == 3 })
+	f.tick(0.3, 23)
+	waitFor(t, "trim again", func() bool { return f.dropCount() == 4 })
 }
 
 // ...until the stream has been steady for a while, after which a little

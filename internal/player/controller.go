@@ -191,6 +191,9 @@ type Controller struct {
 	fresh bool
 	// recoverUntil is set when a dropout has just ended; see RecoverWindow.
 	recoverUntil time.Time
+	// trimmed is set once a small excess has been skipped since recoverUntil
+	// was last set; see catchUp.
+	trimmed bool
 }
 
 type liveCheck struct {
@@ -586,6 +589,7 @@ func (c *Controller) tick(ev Event) {
 		if ev.PosSec != c.lastPos {
 			if now.Sub(c.lastProgress) > c.tuning.StarvedAfter {
 				c.recoverUntil = now.Add(c.tuning.RecoverWindow)
+				c.trimmed = false
 			}
 			c.lastPos = ev.PosSec
 			c.lastProgress = now
@@ -618,27 +622,44 @@ func (c *Controller) tick(ev Event) {
 //     or while nothing was getting through, is stale by definition.
 //
 // A backlog may arrive over several seconds, so one skip may not be the
-// end of it. After any skip, more that shows up within RecoverWindow is
-// skipped at once as well, until the stream has been steady that long.
+// end of it. After a skip, or a dropout, more that shows up within
+// RecoverWindow is dealt with at once as well, without waiting to see
+// whether it lasts:
+//
+//   - More than playing fast can deal with: skip again, and the window
+//     starts again.
+//   - A little: skip it too, but only once. A skip doesn't always land
+//     under the threshold: the engine fills up again to wherever the
+//     stream's packets happen to fall (256 ms, with 85 ms packets and a
+//     250 ms threshold). Skipping that again gets the same result, a
+//     glitch every tick for as long as it lasts. So the second time it is
+//     played off fast, which does get rid of it.
 func (c *Controller) catchUp(now time.Time, fresh bool) {
 	if !c.opts.AutoCatchUp {
 		return
 	}
 	above := c.opts.CatchUpAboveMs
 	buf := c.state.BufferMs
-	fresh = fresh || now.Before(c.recoverUntil)
+	recovering := now.Before(c.recoverUntil)
+	far := buf > above+int(c.tuning.CatchUpReach/time.Millisecond)
 
-	if buf > max(4*above, 2000) || (fresh && buf > above) {
+	if buf > max(4*above, 2000) || (fresh && buf > above) || (recovering && far) {
 		c.skip()
 		return
 	}
-	if buf > above+int(c.tuning.CatchUpReach/time.Millisecond) {
+	if far {
 		if c.overSince.IsZero() {
 			c.overSince = now
 		}
 		if now.Sub(c.overSince) >= c.tuning.CatchUpSustain {
 			c.skip()
 		}
+		return
+	}
+	if recovering && buf > above && !c.trimmed {
+		c.trimmed = true
+		c.endCatchUp()
+		_ = c.engine.DropBuffers()
 		return
 	}
 
@@ -656,17 +677,18 @@ func (c *Controller) catchUp(now time.Time, fresh bool) {
 	if c.overSince.IsZero() {
 		c.overSince = now
 	}
-	if now.Sub(c.overSince) >= c.tuning.CatchUpSustain {
+	if recovering || now.Sub(c.overSince) >= c.tuning.CatchUpSustain {
 		if c.engine.SetSpeed(c.tuning.CatchUpSpeed) == nil {
 			c.state.CatchingUp = true
 		}
 	}
 }
 
-// skip jumps to live by discarding what is queued.
+// skip jumps to live by discarding what is queued, and expects more.
 func (c *Controller) skip() {
 	c.endCatchUp()
 	c.recoverUntil = time.Now().Add(c.tuning.RecoverWindow)
+	c.trimmed = false
 	_ = c.engine.DropBuffers()
 }
 
